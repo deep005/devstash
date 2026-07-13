@@ -50,7 +50,7 @@ function CollapsibleSection({ title, children }: CollapsibleSectionProps) {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
-        className="flex w-full items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="flex w-full cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <span>{title}</span>
         <ChevronDown
@@ -78,7 +78,7 @@ function NavRow({ href, active, onNavigate, children }: NavRowProps) {
       href={href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+        "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
         active
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",

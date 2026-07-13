@@ -1,31 +1,18 @@
-"use client";
+import { FolderPlus, Plus, Search } from "lucide-react";
 
-import { FolderPlus, PanelLeft, Plus, Search } from "lucide-react";
-
-import { useSidebar } from "@/components/layout/sidebar-context";
+import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 /**
- * Dashboard top bar.
- *
- * The leading button toggles the sidebar (drawer on mobile, collapse on
- * desktop). The search field and "New Item" button remain display only —
- * wiring comes in a later phase.
+ * Dashboard top bar (server component). The only interactive piece is the
+ * `SidebarToggle` client island; the search field and "New *" buttons are
+ * display only — wiring comes in a later phase.
  */
 export function TopBar() {
-  const { toggleSidebar } = useSidebar();
-
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={toggleSidebar}
-        aria-label="Toggle sidebar"
-      >
-        <PanelLeft />
-      </Button>
+      <SidebarToggle />
 
       <div className="relative w-full max-w-md">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
