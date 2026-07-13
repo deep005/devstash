@@ -1,24 +1,51 @@
-import { Layers } from "lucide-react";
+"use client";
+
+import { SidebarContent } from "@/components/layout/sidebar-content";
+import { useSidebar } from "@/components/layout/sidebar-context";
+import { cn } from "@/lib/utils";
 
 /**
  * Dashboard sidebar.
  *
- * Phase 1: brand header + a placeholder body. The types and collections
- * navigation is added in a later phase.
+ * Desktop (>= md): an in-flow rail that collapses to zero width when toggled.
+ * Mobile (< md): an off-canvas drawer with a scrim overlay.
  */
 export function AppSidebar() {
-  return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground md:flex">
-      <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-        <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Layers className="size-4" />
-        </span>
-        <span className="text-base font-semibold tracking-tight">DevStash</span>
-      </div>
+  const { open, openMobile, setOpenMobile } = useSidebar();
 
-      <div className="flex flex-1 flex-col p-6">
-        <h2 className="text-lg font-medium text-muted-foreground">Sidebar</h2>
-      </div>
-    </aside>
+  return (
+    <>
+      {/* Desktop rail — collapses width, clipping the fixed-width content. */}
+      <aside
+        className={cn(
+          "hidden shrink-0 overflow-hidden border-sidebar-border transition-[width] duration-200 ease-in-out md:block",
+          open ? "w-64 border-r" : "w-0 border-r-0",
+        )}
+      >
+        <div className="h-full w-64">
+          <SidebarContent />
+        </div>
+      </aside>
+
+      {/* Mobile scrim */}
+      <div
+        aria-hidden
+        onClick={() => setOpenMobile(false)}
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 md:hidden",
+          openMobile ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      />
+
+      {/* Mobile drawer */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 border-r border-sidebar-border transition-transform duration-200 ease-in-out md:hidden",
+          openMobile ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <SidebarContent onNavigate={() => setOpenMobile(false)} />
+      </aside>
+    </>
   );
 }

@@ -1,22 +1,14 @@
-import { AppSidebar } from "@/components/layout/app-sidebar";
-import { TopBar } from "@/components/layout/top-bar";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 
 /**
- * Dashboard shell: persistent sidebar on the left, top bar above the main
- * content area. Pages render into `children`.
+ * Dashboard shell: collapsible sidebar on the left, top bar above the main
+ * content area. State lives in the client `DashboardShell`; pages render into
+ * `children` and stay server components.
  */
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="flex h-full flex-1">
-      <AppSidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-      </div>
-    </div>
-  );
+  return <DashboardShell>{children}</DashboardShell>;
 }
