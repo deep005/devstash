@@ -6,8 +6,9 @@ import { PrismaClient } from "../src/generated/prisma/client";
 
 // Database health check. Verifies, against DATABASE_URL, that we can connect,
 // that the migration history is fully applied, and that the 7 system item
-// types have been seeded. Written so a second branch (e.g. production) can be
-// added by passing another connection string to `testDatabase`.
+// types have been seeded, then prints the seeded demo data as a quick sanity
+// check. Written so a second branch (e.g. production) can be added by passing
+// another connection string to `testDatabase`.
 //
 // Run with: npm run db:test  (or: npx tsx scripts/test-dbs.ts)
 
@@ -20,6 +21,8 @@ const EXPECTED_SYSTEM_TYPES = [
   "prompt",
   "snippet",
 ] as const;
+
+const DEMO_EMAIL = "demo@devstash.io";
 
 type MigrationRow = { migration_name: string; finished_at: Date | null };
 
@@ -78,6 +81,40 @@ async function testDatabase(label: string, url: string | undefined): Promise<voi
     console.log(
       `  · users: ${users}, items: ${items}, collections: ${collections}`,
     );
+
+    // 5. Demo data — fetch and display the seeded demo user's content
+    const demoUser = await prisma.user.findUnique({
+      where: { email: DEMO_EMAIL },
+      include: {
+        collections: {
+          orderBy: { name: "asc" },
+          include: {
+            items: {
+              orderBy: { item: { title: "asc" } },
+              include: { item: { include: { itemType: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!demoUser) {
+      console.log(`  · demo data not seeded — run \`npm run db:seed\``);
+    } else {
+      const total = demoUser.collections.reduce((n, c) => n + c.items.length, 0);
+      console.log(
+        `  ✓ demo data: ${demoUser.name} <${demoUser.email}>` +
+          ` — ${demoUser.collections.length} collections, ${total} items`,
+      );
+      for (const collection of demoUser.collections) {
+        console.log(`      ${collection.name} (${collection.items.length})`);
+        for (const { item } of collection.items) {
+          const detail =
+            item.contentType === "URL" ? item.url : (item.language ?? "text");
+          console.log(`        - [${item.itemType.name}] ${item.title} — ${detail}`);
+        }
+      }
+    }
   } finally {
     await prisma.$disconnect();
   }
