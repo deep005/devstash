@@ -3,23 +3,21 @@ import { Pin, Star } from "lucide-react";
 
 import { formatShortDate } from "@/lib/format";
 import { getItemTypeIcon } from "@/lib/item-type-icons";
-import { getItemTypeById } from "@/lib/item-types";
-import type { Item } from "@/lib/mock-data";
+import type { ItemSummary } from "@/lib/db/items";
 
 /** A single item row: type icon, title with pin/favorite badges, tags, date. */
-export function ItemRow({ item }: { item: Item }) {
-  const type = getItemTypeById(item.itemTypeId);
-  const iconComponent = getItemTypeIcon(type?.icon ?? "File");
-  const accent = type?.color;
+export function ItemRow({ item }: { item: ItemSummary }) {
+  const iconComponent = getItemTypeIcon(item.itemType.icon);
+  const accent = item.itemType.color;
 
   return (
     <div
-      style={accent ? { borderLeftColor: accent } : undefined}
+      style={{ borderLeftColor: accent }}
       className="flex cursor-pointer items-start gap-3 rounded-xl border border-border border-l-2 bg-card p-4 transition-colors hover:bg-muted/40"
     >
       <span
         className="flex size-9 shrink-0 items-center justify-center rounded-lg"
-        style={accent ? { backgroundColor: `${accent}1a` } : undefined}
+        style={{ backgroundColor: `${accent}1a` }}
       >
         {createElement(iconComponent, {
           className: "size-4",

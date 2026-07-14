@@ -14,10 +14,10 @@ const MONTHS = [
 ] as const;
 
 /**
- * Formats an ISO date string as a short "Mon D" label (e.g. "Jul 8").
+ * Formats a Date (or ISO date string) as a short "Mon D" label (e.g. "Jul 8").
  * Uses UTC so output is deterministic across server/client and timezones.
  */
-export function formatShortDate(iso: string): string {
-  const date = new Date(iso);
+export function formatShortDate(value: Date | string): string {
+  const date = new Date(value);
   return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`;
 }

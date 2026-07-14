@@ -1,10 +1,7 @@
+import { DEMO_USER_EMAIL } from "@/lib/db/demo-user";
 import { prisma } from "@/lib/prisma";
 
 // Data fetching for dashboard collections. Server-only (Prisma).
-//
-// TODO(auth): scope queries by the signed-in user once NextAuth lands. Until
-// then, all data belongs to the seeded demo user.
-const DEMO_USER_EMAIL = "demo@devstash.io";
 
 export interface CollectionTypeSummary {
   id: string;
