@@ -2,19 +2,28 @@
 
 ## Status
 
-None
+In Progress
 
 ## Feature
 
-None
+Dashboard collections from DB — replace the mock collection data in the dashboard main area (the recent-collections card grid) with real data from Neon via Prisma. Per [dashboard-collections-spec.md](features/dashboard-collections-spec.md). Design stays as-is; items underneath the collections are NOT part of this feature (later).
 
 ## Goals
 
-None
+- Create `src/lib/db/collections.ts` with the collection data-fetching functions (Prisma via the `src/lib/prisma.ts` singleton).
+- Fetch collections directly in the server component (no API route / client fetching), replacing the `src/lib/mock-data.ts` source for the dashboard's collections grid (6 recent-collection cards, same layout).
+- Collection card **border accent color derived from the most-used content type** in that collection (today it comes from the mock collection's type).
+- Show **small icons of all item types present** in each collection.
+- Update the collection stats display (item counts etc.) to reflect real DB data.
+- Keep the current design — reference `context/screenshots/dashboard-ui-main.png` if needed.
 
 ## Notes
 
-None
+- Branch: `feature/dashboard-collections`.
+- Scope is the dashboard's collections section only — do not render items beneath the collections yet; the stats tiles / pinned / recent item lists stay on mock data unless they break, and `src/lib/mock-data.ts` is removed only once nothing references it (likely a later feature).
+- No auth yet — fetch the demo user's (`demo@devstash.io`) collections for now.
+- Data available from seed: 5 collections / 18 items on the Neon dev branch.
+- Read the Next.js 16 docs in `node_modules/next/dist/docs/` before touching data-fetching code (repo rule: don't rely on training data for Next.js APIs).
 
 ## History
 

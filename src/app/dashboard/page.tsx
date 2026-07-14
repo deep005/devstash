@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "Dashboard · DevStash",
 };
 
+// The collections grid reads live data from the database, so render the
+// dashboard at request time instead of freezing query results into the build.
+export const dynamic = "force-dynamic";
+
 /** How many recent items to surface. */
 const RECENT_ITEMS_LIMIT = 10;
 
@@ -20,7 +24,8 @@ const recentItems = [...items]
 
 /**
  * Dashboard main area: stats, collections grid, pinned items, and recent items.
- * Data is read directly from mock-data until the database is wired up.
+ * Collections come from the database; stats and item lists still read from
+ * mock-data until their features are wired up.
  */
 export default function DashboardPage() {
   return (

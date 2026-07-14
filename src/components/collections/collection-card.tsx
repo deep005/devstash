@@ -2,13 +2,16 @@ import Link from "next/link";
 import { MoreHorizontal, Star } from "lucide-react";
 
 import { getItemTypeIcon } from "@/lib/item-type-icons";
-import { getItemTypeById } from "@/lib/item-types";
-import type { Collection } from "@/lib/mock-data";
+import type { CollectionSummary } from "@/lib/db/collections";
 
 /** A single collection tile with a type-colored accent border. */
-export function CollectionCard({ collection }: { collection: Collection }) {
-  // Accent color comes from the collection's first item type.
-  const accent = getItemTypeById(collection.typeIds[0])?.color;
+export function CollectionCard({
+  collection,
+}: {
+  collection: CollectionSummary;
+}) {
+  // Accent color comes from the collection's most-used item type.
+  const accent = collection.itemTypes[0]?.color;
 
   return (
     <Link
@@ -27,21 +30,21 @@ export function CollectionCard({ collection }: { collection: Collection }) {
       </div>
 
       <p className="mt-1 text-sm text-muted-foreground">
-        {collection.itemCount} items
+        {collection.itemCount} {collection.itemCount === 1 ? "item" : "items"}
       </p>
 
-      <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
-        {collection.description}
-      </p>
+      {collection.description && (
+        <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+          {collection.description}
+        </p>
+      )}
 
       <div className="mt-4 flex items-center gap-2.5">
-        {collection.typeIds.map((typeId) => {
-          const type = getItemTypeById(typeId);
-          if (!type) return null;
+        {collection.itemTypes.map((type) => {
           const Icon = getItemTypeIcon(type.icon);
           return (
             <Icon
-              key={typeId}
+              key={type.id}
               className="size-4"
               style={{ color: type.color }}
               aria-label={type.name}
