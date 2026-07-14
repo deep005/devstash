@@ -2,19 +2,32 @@
 
 ## Status
 
-None
+Planned
 
 ## Feature
 
-None
+Seed data — populate the database with realistic sample data (a demo user, collections, and items) for local development and demos. Per [seed-spec.md](features/seed-spec.md). Extends the existing `prisma/seed.ts`, which currently seeds only the 7 system item types.
 
 ## Goals
 
-None
+- **Demo user** — upsert `demo@devstash.io` ("Demo User"), password `12345678` hashed with **bcryptjs** (12 rounds), `isPro: false`, `emailVerified` = now.
+- **System item types** — keep seeding the 7 system types (already idempotent) and reuse them for the sample items.
+- **Collections + items** (owned by the demo user, linked via `ItemCollection`):
+  - **React Patterns** _(Reusable React patterns and hooks)_ — 3 TypeScript snippets: a custom hook (e.g. `useDebounce`/`useLocalStorage`), a component pattern (context provider / compound component), and a utility function.
+  - **AI Workflows** _(AI prompts and workflow automations)_ — 3 prompts: code review, documentation generation, refactoring assistance.
+  - **DevOps** _(Infrastructure and deployment resources)_ — 1 snippet (Docker / CI-CD config), 1 command (deployment script), 2 links (real documentation URLs).
+  - **Terminal Commands** _(Useful shell commands for everyday development)_ — 4 commands: git operations, docker, process management, package-manager utilities.
+  - **Design Resources** _(UI/UX resources and references)_ — 4 links (real URLs): CSS/Tailwind reference, component library, design system, icon library.
+- **Initial seed only (non-destructive)** — populate data on first run; a re-run must never overwrite, reset, or duplicate. Once the demo user exists, skip re-seeding its collections/items so any changes the user has since made in the app persist and are reflected on subsequent runs. (System item types stay individually idempotent via the existing find-then-create.)
 
 ## Notes
 
-None
+- Overwrite/extend `prisma/seed.ts` (per instruction); run via `npm run db:seed` → `prisma db seed` → `tsx prisma/seed.ts` (configured in `prisma.config.ts`).
+- Add **bcryptjs** (+ `@types/bcryptjs`) as a dependency for password hashing.
+- Content-type mapping: snippets/prompts/commands → `contentType: TEXT` (snippets also set `language`); links → `contentType: URL` with `url` populated.
+- Seed data only — no schema or migration changes.
+- Totals: 1 user, 5 collections, 18 items (3 + 3 + 4 + 4 + 4).
+- Planned branch: `feature/seed-data`.
 
 ## History
 
