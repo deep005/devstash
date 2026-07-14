@@ -2,24 +2,30 @@
 
 ## Status
 
-None
+In Progress
 
 ## Feature
 
-None
+**Dashboard Items** — per [dashboard-items-spec.md](features/dashboard-items-spec.md). Replace the dummy item data in the dashboard's main area (pinned and recent items) with real data from the Neon database via Prisma. The layout and design stay as they are — only the data source changes from `src/lib/mock-data.ts` to the database.
 
 ## Goals
 
-None
+- Create `src/lib/db/items.ts` with data fetching functions
+- Fetch items directly in the server component
+- Item card icon/border derived from the item type
+- Display item type tags and everything else currently shown (reference `context/screenshots/dashboard-ui-main.png` if needed)
+- If there are no pinned items, render nothing in that section
+- Update collection stats display
 
 ## Notes
 
-None
+- Follows the same pattern as the completed dashboard-collections feature (`src/lib/db/collections.ts`, demo user `demo@devstash.io`, single-query fetches, Suspense streaming)
 
 ## History
 
 <!-- History context here latest to earliest -->
 
+- **2026-07-14** — Started **Dashboard Items** per [dashboard-items-spec.md](features/dashboard-items-spec.md): replace mock pinned/recent item data in the dashboard main area with real DB data via Prisma (`src/lib/db/items.ts`), hide the pinned section when empty, and update collection stats. Status set to In Progress.
 - **2026-07-14** — Wired the **dashboard collections grid to the database** per [dashboard-collections-spec.md](features/dashboard-collections-spec.md) on branch `feature/dashboard-collections` — first UI section off mock data. Added `src/lib/db/collections.ts`: `getRecentCollections(limit = 6)` fetches the demo user's (`demo@devstash.io`, `TODO(auth)`) most recently updated collections in a single Prisma query (`_count` for item counts + nested `itemType` select, no N+1) and returns `CollectionSummary[]` whose `itemTypes` are ordered most-used-first (count desc, name asc tie-break). `src/components/dashboard/collections-section.tsx`: the heading renders immediately while an async `CollectionsGrid` streams in behind a `<Suspense>` skeleton (6 pulsing cards); includes an empty state. `src/components/collections/collection-card.tsx` now takes `CollectionSummary`: accent border from the **most-used item type's** color (spec's "most-used content type" — colors live on item types, not the TEXT/FILE/URL enum), one icon per distinct type present, real item counts (with 1-item pluralization), nullable description. `src/app/dashboard/page.tsx` exports `dynamic = "force-dynamic"` — per the bundled Next 16 docs, without `cacheComponents` a page with only ORM queries is statically prerendered and would freeze query results into the build; the build now shows `ƒ /dashboard (Dynamic)`. Sidebar, stats tiles, and pinned/recent item lists intentionally stay on mock data; rendering items under collections is deferred per the spec. Verified `npm run lint` → exit 0, `npm run build` → exit 0, and a production-server smoke test parsing the rendered card HTML: all 5 seeded collections with correct accents/counts/icons (DevOps proves the most-used logic: 2 links beat 1 snippet + 1 command → emerald), DB descriptions, cuid hrefs, `updatedAt` desc order. Merged into `main` (fast-forward), branch `feature/dashboard-collections` deleted, and pushed to `origin`; feature complete.
 - **2026-07-14** — Seeded the database with **sample/demo data** per [seed-spec.md](features/seed-spec.md) on branch `feature/seed-data`. Extended `prisma/seed.ts` (kept the idempotent 7 system item types) with a non-destructive `seedSampleData()`: creates demo user `demo@devstash.io` ("Demo User"; password `12345678` hashed with **bcryptjs** @ 12 rounds; `isPro:false`, `emailVerified`=now) plus 5 collections and 18 items linked via `ItemCollection` — React Patterns (3 TS snippets), AI Workflows (3 prompts), DevOps (1 snippet + 1 command + 2 links), Terminal Commands (4 commands), Design Resources (4 links). Content-type mapping: snippets/prompts/commands → `TEXT` (snippets set `language`), links → `URL` with real URLs. Guarded so the sample data is skipped when the demo user already exists — user edits in the app persist across runs (no reset/overwrite/duplicate). Added `bcryptjs` + `@types/bcryptjs`. Extended `scripts/test-dbs.ts` / `npm run db:test` to fetch and print the demo user's collections + items as a sanity check. Verified: seed created 1 user / 5 collections / 18 items with a valid `$2` bcrypt hash and correct content types (0 mismatches, 0 orphans), a 2nd run skipped as expected, `npm run db:test` → exit 0, `npm run lint` → clean, and `npm run build` → success. Merged into `main` (fast-forward), branch `feature/seed-data` deleted, and pushed to `origin`; feature complete.
 - **2026-07-14** — Set up the **Prisma 7 + Neon** persistence layer per [database-spec.md](features/database-spec.md) on branch `feature/database-setup`. Ported the full schema to `prisma/schema.prisma` (User, Item, ItemType, Collection, ItemCollection, Tag + NextAuth Account/Session/VerificationToken; `ContentType` enum; indexes and cascade deletes). Prisma 7 specifics: `prisma-client` generator with custom output `src/generated/prisma` (gitignored via `/src/generated`), a root `prisma.config.ts` sourcing `datasource.url` from `DATABASE_URL` and the `tsx prisma/seed.ts` seed, and the required `@prisma/adapter-pg` driver adapter. Added the client singleton `src/lib/prisma.ts` (adapter + dev global) and `prisma/seed.ts` (7 system item types; idempotent find-then-create since `@@unique([name, userId])` does not cover a null `userId`). Generated the initial migration `20260713145949_init` and applied it to the Neon dev branch (migration-based only; never `db push`) — verified with `prisma migrate status` ("up to date") and `migrate diff --from-config-datasource --to-schema` ("No difference detected"), and the seed confirms 7 system types with `userId=null`. Added `scripts/test-dbs.ts` + `npm run db:test` (connectivity → migration-applied → seed → record-count health checks; exits non-zero on failure) alongside the other `db:*` npm scripts and a `.nvmrc`. Verified `npm run db:test` → exit 0 and `npm run lint` → clean. Merged into `main` (fast-forward), branch `feature/database-setup` deleted, and pushed to `origin`; feature complete. Wiring the UI to live DB reads (removing `src/lib/mock-data.ts`) is deferred to a future feature.
