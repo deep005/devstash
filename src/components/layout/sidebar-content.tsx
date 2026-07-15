@@ -12,6 +12,7 @@ import {
   Star,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { SidebarCollections } from "@/lib/db/collections";
 import type { DemoUser } from "@/lib/db/demo-user";
@@ -27,6 +28,9 @@ function typeLabel(name: string) {
 function typeHref(name: string) {
   return `/items/${name}s`;
 }
+
+/** Item types gated behind the Pro plan — flagged with a PRO badge in the nav. */
+const PRO_TYPE_NAMES = new Set(["file", "image"]);
 
 function initials(name: string) {
   return name
@@ -131,6 +135,14 @@ export function SidebarContent({
               >
                 <Icon className="size-4 shrink-0" style={{ color: type.color }} />
                 <span className="flex-1 truncate">{typeLabel(type.name)}</span>
+                {PRO_TYPE_NAMES.has(type.name) && (
+                  <Badge
+                    variant="secondary"
+                    className="h-4 px-1.5 text-[0.625rem] font-semibold tracking-wide text-muted-foreground"
+                  >
+                    PRO
+                  </Badge>
+                )}
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {type.count}
                 </span>

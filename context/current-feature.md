@@ -1,20 +1,27 @@
-# Current Feature
+# Current Feature: Add Pro Badge to Sidebar
 
 ## Status
 
-None
+In Progress
 
 ## Feature
 
-None
+Add a "PRO" badge next to the **Files** and **Images** item types in the dashboard sidebar's Types section, marking them as Pro-only features.
 
 ## Goals
 
-None
+- Show a "PRO" badge on the Files and Images type rows in the sidebar (no other types).
+- Use the shadcn/ui Badge component.
+- Badge reads `PRO` in all uppercase.
+- Keep the badge clean and subtle so it doesn't overpower the nav row.
 
 ## Notes
 
-None
+- Spec: [add-pro-badge-sidebar.md](features/add-pro-badge-sidebar.md).
+- Per the project overview, File and Image types are Pro-only — this surfaces that in the nav.
+- The Types list is rendered in `src/components/layout/sidebar-content.tsx` (client component), driven by `getItemTypesWithCounts()` which returns all 7 system types including `file` and `image`. Badge should key off the type name (`file`/`image`), not position.
+- shadcn/ui Badge isn't installed yet (`src/components/ui/` currently has `button` and `input`) — add it via the shadcn CLI.
+- Collapsed-rail state: the sidebar can collapse to an icon-only rail; consider how/whether the badge shows there (likely hidden when collapsed, like the labels/counts).
 
 ## History
 
