@@ -2,15 +2,27 @@
 
 import { SidebarContent } from "@/components/layout/sidebar-content";
 import { useSidebar } from "@/components/layout/sidebar-context";
+import type { SidebarCollections } from "@/lib/db/collections";
+import type { DemoUser } from "@/lib/db/demo-user";
+import type { ItemTypeNav } from "@/lib/db/items";
 import { cn } from "@/lib/utils";
+
+export interface AppSidebarProps {
+  itemTypes: ItemTypeNav[];
+  collections: SidebarCollections;
+  user: DemoUser | null;
+}
 
 /**
  * Dashboard sidebar.
  *
  * Desktop (>= md): an in-flow rail that collapses to zero width when toggled.
  * Mobile (< md): an off-canvas drawer with a scrim overlay.
+ *
+ * Data (item types, collections, user) is fetched in the server layout and
+ * passed through to the shared `SidebarContent`.
  */
-export function AppSidebar() {
+export function AppSidebar({ itemTypes, collections, user }: AppSidebarProps) {
   const { open, openMobile, setOpenMobile } = useSidebar();
 
   return (
@@ -23,7 +35,11 @@ export function AppSidebar() {
         )}
       >
         <div className="h-full w-64">
-          <SidebarContent />
+          <SidebarContent
+            itemTypes={itemTypes}
+            collections={collections}
+            user={user}
+          />
         </div>
       </aside>
 
@@ -44,7 +60,12 @@ export function AppSidebar() {
           openMobile ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <SidebarContent onNavigate={() => setOpenMobile(false)} />
+        <SidebarContent
+          itemTypes={itemTypes}
+          collections={collections}
+          user={user}
+          onNavigate={() => setOpenMobile(false)}
+        />
       </aside>
     </>
   );

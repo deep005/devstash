@@ -3,20 +3,27 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Folder, Layers, Settings, Star } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  Layers,
+  Settings,
+  Star,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import type { SidebarCollections } from "@/lib/db/collections";
+import type { DemoUser } from "@/lib/db/demo-user";
+import type { ItemTypeNav } from "@/lib/db/items";
 import { getItemTypeIcon } from "@/lib/item-type-icons";
-import { collections, currentUser, itemTypes } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
-/** How many "recent" collections to surface below the favorites. */
-const RECENT_COLLECTIONS_LIMIT = 5;
-
-/** Capitalized, pluralized label + route for an item type, e.g. "Snippets" → /items/snippets. */
+/** Capitalized, pluralized label for an item type, e.g. "snippet" → "Snippets". */
 function typeLabel(name: string) {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)}s`;
 }
+/** Route for an item type, e.g. "snippet" → /items/snippets. */
 function typeHref(name: string) {
   return `/items/${name}s`;
 }
@@ -29,12 +36,6 @@ function initials(name: string) {
     .slice(0, 2)
     .toUpperCase();
 }
-
-const favoriteCollections = collections.filter((c) => c.isFavorite);
-const recentCollections = collections
-  .filter((c) => !c.isFavorite)
-  .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  .slice(0, RECENT_COLLECTIONS_LIMIT);
 
 interface CollapsibleSectionProps {
   title: string;
@@ -90,11 +91,19 @@ function NavRow({ href, active, onNavigate, children }: NavRowProps) {
 }
 
 export interface SidebarContentProps {
+  itemTypes: ItemTypeNav[];
+  collections: SidebarCollections;
+  user: DemoUser | null;
   /** Called when a nav link is clicked — used to close the drawer on mobile. */
   onNavigate?: () => void;
 }
 
-export function SidebarContent({ onNavigate }: SidebarContentProps) {
+export function SidebarContent({
+  itemTypes,
+  collections,
+  user,
+  onNavigate,
+}: SidebarContentProps) {
   const pathname = usePathname();
 
   return (
@@ -115,7 +124,7 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
             const href = typeHref(type.name);
             return (
               <NavRow
-                key={type.id}
+                key={type.name}
                 href={href}
                 active={pathname === href}
                 onNavigate={onNavigate}
@@ -133,12 +142,12 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
         <div className="mx-2.5 border-t border-sidebar-border" />
 
         <CollapsibleSection title="Collections">
-          {favoriteCollections.length > 0 && (
+          {collections.favorites.length > 0 && (
             <>
               <p className="px-2.5 pt-1 pb-0.5 text-[0.7rem] font-medium tracking-wider text-muted-foreground uppercase">
                 Favorites
               </p>
-              {favoriteCollections.map((collection) => {
+              {collections.favorites.map((collection) => {
                 const href = `/collections/${collection.id}`;
                 return (
                   <NavRow
@@ -156,12 +165,12 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
             </>
           )}
 
-          {recentCollections.length > 0 && (
+          {collections.recents.length > 0 && (
             <>
               <p className="px-2.5 pt-2 pb-0.5 text-[0.7rem] font-medium tracking-wider text-muted-foreground uppercase">
                 Recent
               </p>
-              {recentCollections.map((collection) => {
+              {collections.recents.map((collection) => {
                 const href = `/collections/${collection.id}`;
                 return (
                   <NavRow
@@ -172,48 +181,64 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
                   >
                     <Folder className="size-4 shrink-0 text-muted-foreground" />
                     <span className="flex-1 truncate">{collection.name}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {collection.itemCount}
-                    </span>
+                    {/* Dot colored by the collection's most-used item type. */}
+                    {collection.accentColor ? (
+                      <span
+                        aria-hidden
+                        style={{ backgroundColor: collection.accentColor }}
+                        className="size-2.5 shrink-0 rounded-full"
+                      />
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="size-2.5 shrink-0 rounded-full bg-muted-foreground/40"
+                      />
+                    )}
                   </NavRow>
                 );
               })}
             </>
           )}
+
+          <Link
+            href="/collections"
+            onClick={onNavigate}
+            className="mt-1 flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <span>View all collections</span>
+            <ChevronRight className="size-3.5" />
+          </Link>
         </CollapsibleSection>
       </nav>
 
       {/* User */}
-      <div className="flex shrink-0 items-center gap-3 border-t border-sidebar-border p-3">
-        {currentUser.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={currentUser.image}
-            alt={currentUser.name}
-            className="size-8 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-            {initials(currentUser.name)}
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{currentUser.name}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {currentUser.email}
-          </p>
+      {user && (
+        <div className="flex shrink-0 items-center gap-3 border-t border-sidebar-border p-3">
+          {user.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.image}
+              alt={user.name ?? user.email}
+              className="size-8 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+              {initials(user.name ?? user.email)}
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{user.name ?? "You"}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {user.email}
+            </p>
+          </div>
+          <Button variant="ghost" size="icon-sm" aria-label="Settings" asChild>
+            <Link href="/settings" onClick={onNavigate}>
+              <Settings />
+            </Link>
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Settings"
-          asChild
-        >
-          <Link href="/settings" onClick={onNavigate}>
-            <Settings />
-          </Link>
-        </Button>
-      </div>
+      )}
     </div>
   );
 }

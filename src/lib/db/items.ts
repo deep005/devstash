@@ -65,3 +65,62 @@ function toItemSummary({
 }: Omit<ItemSummary, "tags"> & { tags: { name: string }[] }): ItemSummary {
   return { ...item, tags: tags.map((tag) => tag.name) };
 }
+
+export interface ItemTypeNav {
+  name: string;
+  /** Lucide icon name stored on the item type, e.g. "Code". */
+  icon: string;
+  /** Hex accent color, e.g. "#3b82f6". */
+  color: string;
+  /** How many of the user's items have this type. */
+  count: number;
+}
+
+/** Canonical display order for the system item types in the sidebar. */
+const SYSTEM_TYPE_ORDER = [
+  "snippet",
+  "prompt",
+  "command",
+  "note",
+  "file",
+  "image",
+  "link",
+];
+
+/**
+ * The system item types with the user's per-type item counts, in canonical
+ * order — drives the sidebar's "Types" navigation. Types with no items are
+ * still listed (count 0) so the nav stays a complete type index.
+ */
+export async function getItemTypesWithCounts(): Promise<ItemTypeNav[]> {
+  const types = await prisma.itemType.findMany({
+    where: { isSystem: true },
+    select: {
+      name: true,
+      icon: true,
+      color: true,
+      // Count only the demo user's items of this type (filtered relation count).
+      _count: {
+        select: { items: { where: { user: { email: DEMO_USER_EMAIL } } } },
+      },
+    },
+  });
+
+  return types
+    .map((type) => ({
+      name: type.name,
+      icon: type.icon,
+      color: type.color,
+      count: type._count.items,
+    }))
+    .sort(
+      (a, b) =>
+        typeOrderIndex(a.name) - typeOrderIndex(b.name) ||
+        a.name.localeCompare(b.name),
+    );
+}
+
+function typeOrderIndex(name: string): number {
+  const index = SYSTEM_TYPE_ORDER.indexOf(name);
+  return index === -1 ? SYSTEM_TYPE_ORDER.length : index;
+}

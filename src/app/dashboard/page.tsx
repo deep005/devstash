@@ -15,8 +15,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Dashboard main area: stats, collections grid, pinned items, and recent
- * items — all from the database. The sidebar still reads from mock-data until
- * its feature is wired up.
+ * items — all from the database. The sidebar (in the layout) is likewise
+ * database-backed.
  */
 export default function DashboardPage() {
   return (

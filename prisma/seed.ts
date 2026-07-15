@@ -42,6 +42,7 @@ interface SeedItem {
 interface SeedCollection {
   name: string;
   description: string;
+  isFavorite?: boolean;
   items: SeedItem[];
 }
 
@@ -49,6 +50,7 @@ const sampleCollections: SeedCollection[] = [
   {
     name: "React Patterns",
     description: "Reusable React patterns and hooks",
+    isFavorite: true,
     items: [
       {
         title: "useDebounce hook",
@@ -173,6 +175,7 @@ Code:
   {
     name: "DevOps",
     description: "Infrastructure and deployment resources",
+    isFavorite: true,
     items: [
       {
         title: "Next.js multi-stage Dockerfile",
@@ -339,6 +342,7 @@ async function seedSampleData(): Promise<void> {
       data: {
         name: collection.name,
         description: collection.description,
+        isFavorite: collection.isFavorite ?? false,
         userId: user.id,
       },
     });

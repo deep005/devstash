@@ -10,8 +10,8 @@ import {
 } from "lucide-react";
 
 /**
- * Maps the `icon` string stored on an ItemType (see mock-data / Prisma schema)
- * to its Lucide component. Falls back to `File` for unknown names.
+ * Maps the `icon` string stored on an ItemType (see the Prisma schema) to its
+ * Lucide component. Falls back to `File` for unknown names.
  */
 export const ITEM_TYPE_ICONS: Record<string, LucideIcon> = {
   Code,
