@@ -1,59 +1,26 @@
-# Current Feature: Auth Credentials - Email/Password Provider
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Feature
 
-Add Credentials provider for email/password authentication with registration. Spec: [auth-phase-2-spec.md](features/auth-phase-2-spec.md).
+None
 
 ## Goals
 
-- Use bcryptjs for hashing (already installed)
-- Add password field to User model via migration if not already there
-- Update `auth.config.ts` with Credentials provider placeholder
-- Update `auth.ts` to override Credentials with bcrypt validation
-- Create registration API route at `/api/auth/register`
+None
 
 ## Notes
 
-**Registration API route:**
-
-`POST /api/auth/register`
-
-- Accept: name, email, password, confirmPassword
-- Validate passwords match
-- Check if user already exists
-- Hash password with bcryptjs
-- Create user in database
-- Return success/error response
-
-**Credentials provider in split pattern:**
-
-- `auth.config.ts`: Add Credentials provider with `authorize: () => null` placeholder
-- `auth.ts`: Override the Credentials provider with actual bcrypt validation logic
-
-**Testing:**
-
-1. Test registration via curl:
-   ```bash
-   curl -X POST http://localhost:3000/api/auth/register \
-     -H "Content-Type: application/json" \
-     -d '{"name":"Test","email":"test@test.com","password":"password123","confirmPassword":"password123"}'
-   ```
-2. Go to `/api/auth/signin`
-3. Sign in with email/password
-4. Verify redirect to `/dashboard`
-5. Verify GitHub OAuth still works
-
-**References:**
-
-- Credentials provider: https://authjs.dev/getting-started/authentication/credentials
+None
 
 ## History
 
 <!-- History context here latest to earliest -->
+
+- **2026-07-17** — Added **email/password (Credentials) authentication with registration** per [auth-phase-2-spec.md](features/auth-phase-2-spec.md) on branch `feature/auth-phase-2`. Confirmed `User.password String?` already existed from the init migration — no new migration needed. `src/auth.config.ts` gains a placeholder Credentials provider (`authorize: () => null`) so the edge-safe config and the default sign-in page know the provider exists without pulling bcrypt/Prisma into the edge bundle. `src/auth.ts` filters that placeholder out of `authConfig.providers` and substitutes a real Credentials provider: validates input with a new `src/lib/auth-schemas.ts` (`signInSchema`, `registerSchema` — Zod 4, installed fresh per the coding standard's "validate all inputs with Zod"; `z.email()`, lowercased, password 8–72 chars, `registerSchema` refines password===confirmPassword), looks the user up via the existing `prisma` singleton, rejects OAuth-only accounts (no stored hash), and `bcrypt.compare`s the rest. New `POST /api/auth/register` (`src/app/api/auth/register/route.ts`): validates with `registerSchema`, 409s on an existing email (plus a `Prisma.PrismaClientKnownRequestError` P2002 fallback for the check-then-insert race), hashes at 12 rounds to match the seed, creates the user, and returns the spec's `{success, data|error}` shape with 201/400/409/500. Used Context7 (`authjs.dev`) to confirm the current Credentials-provider + Zod pattern before writing it. Verified `npm run lint` → clean, `npm run build` → success (`ƒ /api/auth/register` registered), and a full flow against a running dev server: curl coverage for mismatched/short/malformed/valid/duplicate registration bodies (400/400/400/201/409), a complete credentials sign-in round-trip through the real `/api/auth/callback/credentials` endpoint (correct password → session with `user.id`; wrong password → `CredentialsSignin` error, no session), `/dashboard` gated correctly on the session cookie, the default sign-in page rendering both "Sign in with GitHub" and the credentials form, and the pre-existing seeded demo user (`demo@devstash.io` / `12345678`) still authenticating — confirming no regression to phase 1. The curl-created test user was deleted from the dev DB afterward. As in phase 1, the full GitHub OAuth browser round-trip was left for manual verification. Merged into `main` (fast-forward); branch `feature/auth-phase-2` deleted. Feature complete. Auth phase 3 (spec already present in `context/features/`) is deferred to a future feature.
 
 - **2026-07-17** — Set up **NextAuth v5 with GitHub OAuth** per [auth-phase-1-spec.md](features/auth-phase-1-spec.md) on branch `feature/auth-phase-1`. Installed `next-auth@5.0.0-beta.31` and `@auth/prisma-adapter@2.11.2`. Split config pattern: `src/auth.config.ts` (edge-compatible, GitHub provider only) and `src/auth.ts` (full config — `PrismaAdapter` wrapping the existing `src/lib/prisma.ts` singleton rather than a new `PrismaClient`, `session: { strategy: "jwt" }`, and `jwt`/`session` callbacks that copy `user.id` onto the token/session). `src/app/api/auth/[...nextauth]/route.ts` exports `GET`/`POST` from `handlers`. `src/types/next-auth.d.ts` augments `Session["user"]` with `id`. `src/proxy.ts` builds a second, edge-only `auth()` from `auth.config.ts` (no Prisma adapter in the proxy runtime), exports the required named `proxy` (not default), matches only `/dashboard/:path*`, and redirects unauthenticated requests to NextAuth's default `/api/auth/signin?callbackUrl=...` — no custom `pages.signIn`, per the spec. Read the bundled Next 16 proxy docs first (Middleware was renamed to Proxy in v16, defaults to the Node.js runtime) and used Context7 (`authjs.dev`) to confirm the current v5 split-config/adapter/callback patterns rather than relying on training data. Verified `npm run lint` → clean, `npm run build` → success (`ƒ /api/auth/[...nextauth]`, `ƒ /dashboard`, `ƒ Proxy (Middleware)`), and a smoke test against a running server: unauthenticated `GET /dashboard` → `307` to `/api/auth/signin?callbackUrl=%2Fdashboard` with CSRF/callback cookies set, the default sign-in page renders a GitHub button posting to `/api/auth/signin/github`, and `/` still returns `200` (proxy matcher correctly scoped to `/dashboard/*` only). The full GitHub OAuth round-trip (authorize → redirect back to `/dashboard`) needs a real browser + GitHub account and was left for manual verification. Merged into `main` (fast-forward); branch `feature/auth-phase-1` deleted. Feature complete. Auth phases 2 and 3 (specs already present in `context/features/`) are deferred to future features.
 
