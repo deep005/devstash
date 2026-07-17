@@ -1,62 +1,26 @@
-# Current Feature: Auth Setup - NextAuth + GitHub Provider
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Feature
 
-Set up NextAuth v5 with Prisma adapter and GitHub OAuth. Use NextAuth's default pages for testing. Spec: [auth-phase-1-spec.md](features/auth-phase-1-spec.md).
+None
 
 ## Goals
 
-- Install NextAuth v5 (`next-auth@beta`) and `@auth/prisma-adapter`
-- Set up split auth config pattern for edge compatibility
-- Add GitHub OAuth provider
-- Protect `/dashboard/*` routes using Next.js 16 proxy
-- Redirect unauthenticated users to sign-in
+None
 
 ## Notes
 
-**Files to create:**
-
-1. `src/auth.config.ts` - Edge-compatible config (providers only, no adapter)
-2. `src/auth.ts` - Full config with Prisma adapter and JWT strategy
-3. `src/app/api/auth/[...nextauth]/route.ts` - Export handlers from auth.ts
-4. `src/proxy.ts` - Route protection with redirect logic
-5. `src/types/next-auth.d.ts` - Extend Session type with user.id
-
-**Key gotchas:**
-
-- Use Context7 to verify the newest config and conventions.
-- Use `next-auth@beta` (not `@latest` which installs v4)
-- Proxy file must be at `src/proxy.ts` (same level as `app/`)
-- Use named export: `export const proxy = auth(...)` not default export
-- Use `session: { strategy: 'jwt' }` with split config pattern
-- Don't set custom `pages.signIn` - use NextAuth's default page
-
-**Environment variables:**
-
-```
-AUTH_SECRET=
-AUTH_GITHUB_ID=
-AUTH_GITHUB_SECRET=
-```
-
-**Testing:**
-
-1. Go to `/dashboard` - should redirect to sign-in
-2. Click "Sign in with GitHub"
-3. Verify redirect back to `/dashboard` after auth
-
-**References:**
-
-- Edge compatibility: https://authjs.dev/getting-started/installation#edge-compatibility
-- Prisma adapter: https://authjs.dev/getting-started/adapters/prisma
+None
 
 ## History
 
 <!-- History context here latest to earliest -->
+
+- **2026-07-17** — Set up **NextAuth v5 with GitHub OAuth** per [auth-phase-1-spec.md](features/auth-phase-1-spec.md) on branch `feature/auth-phase-1`. Installed `next-auth@5.0.0-beta.31` and `@auth/prisma-adapter@2.11.2`. Split config pattern: `src/auth.config.ts` (edge-compatible, GitHub provider only) and `src/auth.ts` (full config — `PrismaAdapter` wrapping the existing `src/lib/prisma.ts` singleton rather than a new `PrismaClient`, `session: { strategy: "jwt" }`, and `jwt`/`session` callbacks that copy `user.id` onto the token/session). `src/app/api/auth/[...nextauth]/route.ts` exports `GET`/`POST` from `handlers`. `src/types/next-auth.d.ts` augments `Session["user"]` with `id`. `src/proxy.ts` builds a second, edge-only `auth()` from `auth.config.ts` (no Prisma adapter in the proxy runtime), exports the required named `proxy` (not default), matches only `/dashboard/:path*`, and redirects unauthenticated requests to NextAuth's default `/api/auth/signin?callbackUrl=...` — no custom `pages.signIn`, per the spec. Read the bundled Next 16 proxy docs first (Middleware was renamed to Proxy in v16, defaults to the Node.js runtime) and used Context7 (`authjs.dev`) to confirm the current v5 split-config/adapter/callback patterns rather than relying on training data. Verified `npm run lint` → clean, `npm run build` → success (`ƒ /api/auth/[...nextauth]`, `ƒ /dashboard`, `ƒ Proxy (Middleware)`), and a smoke test against a running server: unauthenticated `GET /dashboard` → `307` to `/api/auth/signin?callbackUrl=%2Fdashboard` with CSRF/callback cookies set, the default sign-in page renders a GitHub button posting to `/api/auth/signin/github`, and `/` still returns `200` (proxy matcher correctly scoped to `/dashboard/*` only). The full GitHub OAuth round-trip (authorize → redirect back to `/dashboard`) needs a real browser + GitHub account and was left for manual verification. Merged into `main` (fast-forward); branch `feature/auth-phase-1` deleted. Feature complete. Auth phases 2 and 3 (specs already present in `context/features/`) are deferred to future features.
 
 - **2026-07-16** — Added a **PRO badge to the sidebar** per [add-pro-badge-sidebar.md](features/add-pro-badge-sidebar.md) on branch `feature/add-pro-badge-sidebar`. Installed the shadcn/ui **Badge** component (`src/components/ui/badge.tsx`, via `npx shadcn add badge` — `default`/`secondary`/`outline`/`ghost`/`link`/`destructive` variants; a polymorphic `<span>` with `asChild` via Radix `Slot`; reused the already-installed `class-variance-authority`/`radix-ui`, so `package-lock.json` was untouched). In `src/components/layout/sidebar-content.tsx` added a module-level `PRO_TYPE_NAMES = new Set(["file", "image"])` and render `<Badge variant="secondary">PRO</Badge>` between the type label and item count when `PRO_TYPE_NAMES.has(type.name)` — keyed off the type **name**, not row position, so exactly Files and Images are flagged (the two Pro-only system types). Kept it clean/subtle with compact overrides (`h-4 px-1.5 text-[0.625rem] font-semibold tracking-wide text-muted-foreground`); tailwind-merge strips the base `h-5`/`px-2`/`text-xs`. No collapsed-rail handling needed — the desktop rail width-collapses to `w-0` and clips the whole nav (`overflow-hidden`), so the badge hides with the labels/counts (there is no icon-only rail). Verified `npm run lint` → clean, `npm run build` → success (`ƒ /dashboard`), and a production-server smoke test parsing the rendered `/dashboard` HTML: exactly **4** `PRO` badges (Files + Images, each across the desktop rail and mobile drawer), **none** on the other 5 types (label → count directly), and the compact overrides won the class merge. Merged into `main` (fast-forward); branch `feature/add-pro-badge-sidebar` deleted. Feature complete.
 - **2026-07-15** — Wired the **dashboard stats and sidebar to the database** per [stats-sidebar-spec.md](features/stats-sidebar-spec.md) on branch `feature/stats-sidebar` — the sidebar was the last UI area on mock data. Added `getItemTypesWithCounts()` to `src/lib/db/items.ts` (all 7 system types with the demo user's per-type item counts via a filtered relation count, in canonical snippet→link order; types with 0 items still listed so the nav stays a complete index), `getSidebarCollections()` to `src/lib/db/collections.ts` (all favorites + up to 5 recent non-favorites; recents carry their most-used item type's color, tie-broken by type name to match `getRecentCollections`), and `getDemoUser()` to `src/lib/db/demo-user.ts` for the footer. Because the sidebar renders inside a client boundary (`AppSidebar`/`useSidebar`), the server `src/app/dashboard/layout.tsx` now fetches all three in parallel (`Promise.all`), exports `dynamic = "force-dynamic"`, and passes serializable props down to `AppSidebar` → the (client) `sidebar-content.tsx`, which maps types to `/items/<type>s` links with per-type icon+color+count, splits collections into **Favorites** (star) and **Recent** (a dot colored by the most-used type), and adds a "View all collections" link → `/collections`. Deleted the now-unused `src/lib/mock-data.ts` (stats tiles were already DB-backed from the dashboard-items feature). **Fixed a P2028 "Unable to start a transaction in the given time" regression**: the new per-request load tipped both the new sidebar-collections `$transaction` and the pre-existing stats `$transaction` over Neon's cold-start/connection-contention limit — converted both batched-read `$transaction`s (`getSidebarCollections`, `getDashboardStats`) to `Promise.all`, since these independent reads need no transactional snapshot. Seed: added `isFavorite?` to `SeedCollection` and marked **DevOps** + **React Patterns** favorite so the sidebar's Favorites section is populated (re-seeded via the pg-adapter path — `prisma migrate reset` can't reach Neon's pooler endpoint with the migrate engine, and `db:seed` is guarded, so cleared the demo user then `db:seed`). Verified: `npm run lint` → clean, `npm run build` → success (`ƒ /dashboard`), and dev smoke tests — item types 4/3/5/0/0/0/6 = 18, collections with correct most-used-type dots (DevOps emerald: 2 links beat 1 snippet+1 command), Favorites section shows DevOps + React Patterns with stars, "View all collections" + DB user footer present, and **10 concurrent loads with 0 transaction/icon/Prisma errors** (the prior P2028 repro). Merged into `main` (fast-forward); branch `feature/stats-sidebar` deleted. Feature complete.
