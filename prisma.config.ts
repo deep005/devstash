@@ -10,6 +10,9 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // The CLI (migrate/db/studio) needs Neon's DIRECT endpoint — Prisma
+    // Migrate's advisory lock does not survive the PgBouncer pooler. The
+    // runtime client keeps using the pooled DATABASE_URL via the pg adapter.
+    url: env("DIRECT_URL"),
   },
 });
