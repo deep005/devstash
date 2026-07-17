@@ -1,8 +1,9 @@
+import { auth } from "@/auth";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
+import type { SidebarUser } from "@/components/layout/sidebar-user";
 import { TopBar } from "@/components/layout/top-bar";
 import { getSidebarCollections } from "@/lib/db/collections";
-import { getDemoUser } from "@/lib/db/demo-user";
 import { getItemTypesWithCounts } from "@/lib/db/items";
 
 // The sidebar reads live item types, collections, and user from the database,
@@ -22,11 +23,20 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [itemTypes, collections, user] = await Promise.all([
+  const [itemTypes, collections, session] = await Promise.all([
     getItemTypesWithCounts(),
     getSidebarCollections(),
-    getDemoUser(),
+    auth(),
   ]);
+
+  // /dashboard is gated by the proxy, so a session is always present here.
+  const user: SidebarUser | null = session?.user
+    ? {
+        name: session.user.name ?? null,
+        email: session.user.email ?? "",
+        image: session.user.image ?? null,
+      }
+    : null;
 
   return (
     <SidebarProvider>

@@ -2,15 +2,15 @@
 
 import { SidebarContent } from "@/components/layout/sidebar-content";
 import { useSidebar } from "@/components/layout/sidebar-context";
+import type { SidebarUser } from "@/components/layout/sidebar-user";
 import type { SidebarCollections } from "@/lib/db/collections";
-import type { DemoUser } from "@/lib/db/demo-user";
 import type { ItemTypeNav } from "@/lib/db/items";
 import { cn } from "@/lib/utils";
 
 export interface AppSidebarProps {
   itemTypes: ItemTypeNav[];
   collections: SidebarCollections;
-  user: DemoUser | null;
+  user: SidebarUser | null;
 }
 
 /**

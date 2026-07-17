@@ -12,6 +12,9 @@ import type { NextAuthConfig } from "next-auth";
 // sign-in page know the provider exists without pulling Node-only
 // dependencies into the edge bundle.
 export default {
+  pages: {
+    signIn: "/sign-in",
+  },
   providers: [
     GitHub,
     Credentials({

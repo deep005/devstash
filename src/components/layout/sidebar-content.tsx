@@ -3,19 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ChevronDown,
-  ChevronRight,
-  Folder,
-  Layers,
-  Settings,
-  Star,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, Layers, Star } from "lucide-react";
 
+import { SidebarUserMenu, type SidebarUser } from "@/components/layout/sidebar-user";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import type { SidebarCollections } from "@/lib/db/collections";
-import type { DemoUser } from "@/lib/db/demo-user";
 import type { ItemTypeNav } from "@/lib/db/items";
 import { getItemTypeIcon } from "@/lib/item-type-icons";
 import { cn } from "@/lib/utils";
@@ -31,15 +23,6 @@ function typeHref(name: string) {
 
 /** Item types gated behind the Pro plan — flagged with a PRO badge in the nav. */
 const PRO_TYPE_NAMES = new Set(["file", "image"]);
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part.charAt(0))
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 interface CollapsibleSectionProps {
   title: string;
@@ -97,7 +80,7 @@ function NavRow({ href, active, onNavigate, children }: NavRowProps) {
 export interface SidebarContentProps {
   itemTypes: ItemTypeNav[];
   collections: SidebarCollections;
-  user: DemoUser | null;
+  user: SidebarUser | null;
   /** Called when a nav link is clicked — used to close the drawer on mobile. */
   onNavigate?: () => void;
 }
@@ -224,33 +207,7 @@ export function SidebarContent({
       </nav>
 
       {/* User */}
-      {user && (
-        <div className="flex shrink-0 items-center gap-3 border-t border-sidebar-border p-3">
-          {user.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={user.image}
-              alt={user.name ?? user.email}
-              className="size-8 shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-              {initials(user.name ?? user.email)}
-            </span>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{user.name ?? "You"}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {user.email}
-            </p>
-          </div>
-          <Button variant="ghost" size="icon-sm" aria-label="Settings" asChild>
-            <Link href="/settings" onClick={onNavigate}>
-              <Settings />
-            </Link>
-          </Button>
-        </div>
-      )}
+      {user && <SidebarUserMenu user={user} onNavigate={onNavigate} />}
     </div>
   );
 }
