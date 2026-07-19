@@ -1,24 +1,75 @@
-# Current Feature
+# Current Feature: Profile Page
 
 ## Status
 
-None
+Not Started
 
 ## Feature
 
-None
+Build out the `/profile` page: user info (email, name, avatar, account creation
+date), usage stats (total items, total collections, per-item-type breakdown), and
+account actions — change password (email/credentials users only) and delete account
+with a confirmation dialog. A minimal `/profile` page already exists (avatar +
+name/email, `auth()`-guarded, from the auth-phase-3 work); this feature expands it.
 
 ## Goals
 
-None
+- **Route** — keep `/profile` protected (already `auth()`-guarded + covered by the
+  proxy matcher); redirect unauthenticated users to sign-in as today.
+- **User info** — show email, name, avatar (GitHub OAuth `image` if present, else
+  initials from name/email), and the account creation date (`User.createdAt`).
+- **Usage stats** — total items, total collections, and a breakdown by item type with
+  a count for each of the 7 system types (snippets, prompts, notes, commands, links,
+  files, images).
+- **Change password** — visible **only** for email/password (credentials) accounts,
+  not GitHub OAuth-only accounts. Validate + hash the new password (bcrypt @ 12
+  rounds, consistent with register/seed/reset).
+- **Delete account** — behind a confirmation dialog to prevent accidental deletion;
+  cascades to the user's items/collections/etc., then signs the user out.
+- **Patterns** — follow the existing codebase: server-component data fetching via
+  Prisma (`src/lib/db/*`), server actions for mutations (`src/actions/auth.ts`), Zod
+  validation, shadcn/ui components, and the `{ success, data, error }` action shape.
+- `npm run lint` and `npm run build` clean; **no regression** to sign-in / register /
+  verification / reset flows.
 
 ## Notes
 
-None
+- **Existing surface:** `src/app/profile/page.tsx` currently renders just the avatar +
+  name/email (server component, `auth()`-guarded). Reuse `UserAvatar` / `getInitials`
+  from `src/components/auth/user-avatar.tsx` for the avatar (already handles the
+  GitHub-image-vs-initials logic).
+- **Per-user scoping:** the dashboard reads are still **demo-user-scoped**
+  (`DEMO_USER_EMAIL`, the standing `TODO(auth)`). The profile page must scope to the
+  **actual signed-in user** from `auth()`, not the demo user — so its stat/count
+  queries need to key off the session `user.id`, not reuse the demo-scoped helpers
+  as-is. `getItemTypesWithCounts()` (`src/lib/db/items.ts`) is the closest existing
+  helper for the type breakdown but is demo-scoped — likely needs a userId param or a
+  profile-specific variant.
+- **Credentials vs OAuth detection:** decide "email user" by presence of
+  `User.password` (credentials) vs an OAuth-only account (has an `Account` row / no
+  password) — mirrors how `authorize` / the reset flow already distinguish them. Only
+  credentials users see Change Password.
+- **Change password action:** new server action in `src/actions/auth.ts`; almost
+  certainly requires the **current** password (bcrypt compare) plus a new password +
+  confirm (new Zod schema alongside `resetPasswordSchema` in `src/lib/auth-schemas.ts`).
+- **Delete account:** needs a confirmation UI — likely shadcn **alert-dialog** (not yet
+  installed; `dropdown-menu`/`avatar`/`label` are). Cascade deletes are handled by the
+  schema (`onDelete: Cascade` on items/collections/accounts/sessions); the action then
+  `signOut`s. Orphaned tags may need cleanup (see the `db:delete-users` script pattern).
+- **No new dependencies expected** (bcryptjs, zod already installed); **no DB
+  migration** (all reads/writes are on existing models). Credentials + OAuth both
+  supported; delete applies to either, change-password only to credentials.
+- **Open decisions to resolve at `start`:** (1) require current password to change it
+  (recommended yes); (2) delete-account confirmation mechanism — simple confirm button
+  vs type-your-email-to-confirm; (3) whether to add per-user DB helpers now or a
+  minimal profile-scoped query — and whether the type breakdown reuses
+  `getItemTypesWithCounts` (parameterized) or a new function.
 
 ## History
 
 <!-- History context here latest to earliest -->
+
+- **2026-07-19** — Added a **forgot-password flow** (link → reset email → set-new-password page) per the inline `/feature` spec on branch `feature/forgot-password`, **reusing the existing NextAuth `VerificationToken` table** for reset tokens (**no migration**). Token layer `src/lib/password-reset.ts`: reset tokens live in `VerificationToken` under a **namespaced identifier** `password-reset:${email}` (exported `PASSWORD_RESET_IDENTIFIER_PREFIX`) so the reset and email-verification flows never clobber or consume each other's tokens; `createPasswordResetToken` (32-byte `randomBytes` hex, **1h TTL**, deletes prior reset tokens for that identifier so a new request supersedes the old link), `issuePasswordResetEmail({email,name})` (builds `${getBaseUrl()}/reset-password?token=…`, sends), `checkPasswordResetToken` (**read-only** validation → `valid(email) | expired | invalid`, only recognises prefixed tokens; used to render the form **without consuming** the token — an email prefetch/scan can't burn the link), and `resetPasswordWithToken` (re-validates, hashes with **bcrypt @ 12 rounds** to match register/seed, updates `password`, sets `emailVerified` if unset, then deletes the token — single-use). **Bidirectional isolation:** also hardened `verifyEmailToken` (`src/lib/verification.ts`) to return `invalid` (without deleting) for reset-namespaced records, so `/verify-email` can never burn a valid reset token. Email layer `src/lib/email/password-reset-email.ts` (`sendPasswordResetEmail`, inline HTML+text, non-throwing `{ok}`, mirrors `verification-email.ts`, "expires in 1 hour" copy). Server actions in `src/actions/auth.ts`: `requestPasswordReset` (deliberately **generic** response — no account enumeration — only (re)issues for accounts that have a password; OAuth-only/unknown silently no-op) and `resetPassword` (validates `resetPasswordSchema`, returns `z.flattenError` field errors, maps expired/invalid tokens to messages, and on success `redirect("/sign-in?reset=1")` — called **outside** any try/catch per the bundled Next 16 `redirect` docs). New Zod schemas `requestResetSchema` + `resetPasswordSchema` (password 8–72 + confirm, refine equal) in `src/lib/auth-schemas.ts`. UI in the `(auth)` card group mirroring `/verify-email`: `/forgot-password` (client `ForgotPasswordForm`, `useActionState`, generic confirmation) and `/reset-password` (server page, `export const dynamic = "force-dynamic"`, read-only token check → `valid` renders client `ResetPasswordForm`; `expired`/`invalid` → message + "Request a new link" → `/forgot-password`); plus a **"Forgot password?"** link in `SignInForm` (next to the password label) and a green `reset` banner on the sign-in page alongside `registered`/`verified`. **Decisions (confirmed via AskUserQuestion, all recommended defaults):** 1h TTL; reset **also marks `emailVerified`** (clicking the link proves inbox control, so a previously-unverified user can sign in immediately); **no feature flag** (password reset is always on, independent of `EMAIL_VERIFICATION_ENABLED`). Read the bundled Next 16 `redirect`/`forms` guides first (confirmed the `useActionState` third-element `pending` signature and "redirect outside try/catch" for server actions) rather than training data. **No new dependencies** (bcryptjs, resend, zod already installed); **no DB migration**; **credentials-only** — GitHub OAuth and the seeded demo user unaffected. Verified `npm run lint` → clean and `npm run build` → success (`○ /forgot-password` static, `ƒ /reset-password` dynamic, all routes present; TypeScript clean), plus **read-only** smoke tests against the running dev server: `/forgot-password` renders the form, `/reset-password` with no/bogus token → "Invalid link" + "Request a new link", `/sign-in?reset=1` shows the "Password updated" banner (absent on plain `/sign-in`), and the "Forgot password?" link points to `/forgot-password`; dev log clean of runtime errors. The full **mutating** path (request → token row → reset → sign-in) and actual Resend delivery were **left to manual** — no writes to the dev DB, consistent with the prior verification features (and delivery still can't be fully tested until the Resend domain is linked; the shared test sender only reaches the Resend account's own address). **Incidental:** a stray, unrelated working-tree edit had flipped `.env.example`'s documented default `EMAIL_VERIFICATION_ENABLED` from `"true"` → `"false"`; restored it (with the user's go-ahead) so the commit stayed scoped to the feature and the example keeps documenting the real default (ON). Merged into `main` (fast-forward); branch `feature/forgot-password` deleted. Feature complete.
 
 - **2026-07-19** — Added the **email-verification toggle** (`EMAIL_VERIFICATION_ENABLED`) on branch `feature/email-verification-toggle` — a single env flag to turn the whole verification system on/off, motivated by the Resend domain not being linked yet (the shared test sender only delivers to the Resend account's own address). Created `src/lib/flags.ts` → `isEmailVerificationEnabled()` as the single source of truth, parsed **default-on** (`process.env.EMAIL_VERIFICATION_ENABLED !== "false"`), server-side only — chose the env-var option over the hardcoded-constant / DB-`Setting` alternatives (no migration; no client exposure). Branched every touchpoint on the flag: `POST /api/auth/register` (`src/app/api/auth/register/route.ts`) skips `issueVerificationEmail` **and** creates the user already verified (`emailVerified: new Date()`) when off, so the account is usable immediately and stays valid if the flag is later flipped back on; `authorize` in `src/auth.ts` skips the `!emailVerified` security gate when off; `signInWithCredentials` (`src/actions/auth.ts`) skips its unverified pre-check when off; `resendVerificationEmail` is a no-op returning the same generic message (no account enumeration) when off; the `/sign-in?registered=1` banner (`src/app/(auth)/sign-in/page.tsx`) drops the "check your email" copy for a plain "Account created. Sign in to continue." when off. **Edge case decided:** `/verify-email` (`src/app/(auth)/verify-email/page.tsx`) `redirect("/sign-in")` when off (rather than showing "invalid link"), and marked `export const dynamic = "force-dynamic"` so the flag-off unconditional redirect — which reads no `searchParams` — isn't frozen into a static prerender at build time (would otherwise ignore a later flag flip + restart). **Enabled** path is byte-for-byte unchanged (no regression). Documented the flag in `.env.example` (default-on, note that changes need a server restart). Verified `npm run lint` → clean and `npm run build` → success (`ƒ /verify-email` now dynamic; all routes present). Both flag states were reasoned through the branches but **not** exercised end-to-end against a running server / DB (no mutating tests run on the dev branch, consistent with the prior verification-on-register feature); the enabled path still can't be fully delivered-email-tested until the Resend domain is linked. Known caveat carried over: the flag is env-based, so toggling requires a server restart/redeploy to take effect. Merged into `main` (fast-forward); branch `feature/email-verification-toggle` deleted (never pushed to origin). Feature complete.
 
