@@ -1,22 +1,29 @@
-# Current Feature
-
-<!-- dummy comment -->
+# Current Feature: Email Verification on Register
 
 ## Status
 
-None
+In Progress
 
 ## Feature
 
-None
+Require new email/password registrants to verify their email address before they can sign in. On registration, send a verification email (via **Resend**) containing a unique link; clicking it marks the account verified. Credentials sign-in is blocked until the email is verified.
 
 ## Goals
 
-None
+- On successful registration (`POST /api/auth/register`), generate a unique, expiring verification token, persist it, and send a verification email via Resend containing an absolute link (e.g. `/verify-email?token=…`).
+- A verification handler validates the token, sets `User.emailVerified = now()`, consumes/deletes the token, and redirects to `/sign-in` with a success indicator; invalid, already-used, or expired tokens fail gracefully with a clear message (and ideally a "resend" path).
+- Credentials sign-in (`authorize` in `src/auth.ts`) rejects accounts whose `emailVerified` is null, surfacing a "please verify your email" style message rather than a generic failure.
+- Add a Resend client wrapper (`RESEND_API_KEY`) plus a reusable send helper and a verification-email template/component.
+- Update the post-register UX ("check your email to verify") so users know verification is required before sign-in.
 
 ## Notes
 
-None
+- **`resend` is not installed yet** — it will need to be added. `RESEND_API_KEY` already exists in `.env`.
+- **No app base-URL env var** is currently set (`.env` has `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `RESEND_API_KEY`). Building an absolute verification link needs a base URL — add one (e.g. `AUTH_URL`/`NEXT_PUBLIC_APP_URL`) with a `http://localhost:3000` dev fallback.
+- Schema already has `User.emailVerified DateTime?` and a NextAuth `VerificationToken` model (`identifier` / `token` / `expires`, `@@unique([identifier, token])`) — decide during `start` whether to reuse it for verification tokens or add a dedicated model. Any schema change must go through `prisma migrate dev` (never `db push`), against the Neon **dev** branch only.
+- **Only enforce verification for credentials accounts.** GitHub OAuth users are verified by the provider (and the adapter sets `emailVerified`); don't break OAuth sign-in. The seeded demo user (`demo@devstash.io`) already has `emailVerified` set, so it won't be locked out.
+- Current flow: register returns 201 and the client `RegisterForm` redirects to `/sign-in?registered=1`; that banner copy should shift toward "verify your email."
+- Non-standard Next.js 16 — read the bundled `node_modules/next/dist/docs/` guides before adding routes/handlers. Validate inputs with Zod; use Context7 (`resend`, `authjs.dev`) rather than training data. Consider using a subagent/spec if the scope warrants a phased breakdown.
 
 ## History
 

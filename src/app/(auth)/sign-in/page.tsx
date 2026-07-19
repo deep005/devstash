@@ -33,6 +33,7 @@ export default async function SignInPage({
   const params = await searchParams;
   const callbackUrl = firstValue(params.callbackUrl);
   const registered = firstValue(params.registered) === "1";
+  const verified = firstValue(params.verified) === "1";
   const errorCode = firstValue(params.error);
   const errorMessage = errorCode
     ? (ERROR_MESSAGES[errorCode] ?? "Sign-in failed. Please try again.")
@@ -49,7 +50,13 @@ export default async function SignInPage({
 
       {registered && (
         <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
-          Account created. Sign in to continue.
+          Account created. Check your email for a verification link, then sign
+          in.
+        </p>
+      )}
+      {verified && (
+        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+          Email verified. You can now sign in.
         </p>
       )}
       {errorMessage && (

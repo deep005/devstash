@@ -41,6 +41,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Block unverified email/password accounts. This is the security gate
+        // (it also protects the raw /callback/credentials endpoint); the
+        // sign-in server action separately surfaces a friendly "verify your
+        // email" message. OAuth users never reach this authorize.
+        if (!user.emailVerified) {
+          return null;
+        }
+
         return {
           id: user.id,
           email: user.email,

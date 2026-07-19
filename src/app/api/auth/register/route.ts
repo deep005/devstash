@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 import { registerSchema } from "@/lib/auth-schemas";
 import { prisma } from "@/lib/prisma";
+import { issueVerificationEmail } from "@/lib/verification";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -45,6 +46,10 @@ export async function POST(request: Request) {
       data: { name, email, password: passwordHash },
       select: { id: true, name: true, email: true },
     });
+
+    // Send the verification email. A send failure does not fail registration —
+    // the account exists and the user can request a fresh link from sign-in.
+    await issueVerificationEmail({ email: user.email, name: user.name });
 
     return NextResponse.json({ success: true, data: user }, { status: 201 });
   } catch (error) {
