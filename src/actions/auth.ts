@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import { signIn, signOut } from "@/auth";
+import { auth, signIn, signOut } from "@/auth";
 import {
+  changePasswordSchema,
   requestResetSchema,
   resetPasswordSchema,
   signInSchema,
@@ -231,4 +232,126 @@ export async function resetPassword(
   // Success — redirect must be called outside any try/catch (it throws
   // NEXT_REDIRECT). useActionState propagates the throw to complete navigation.
   redirect("/sign-in?reset=1");
+}
+
+export interface ChangePasswordState {
+  error: string | null;
+  fieldErrors?: {
+    currentPassword?: string;
+    password?: string;
+    confirmPassword?: string;
+  };
+}
+
+/**
+ * Changes the signed-in user's password: verifies the current password, then
+ * hashes and stores the new one. Credentials accounts only (OAuth-only accounts
+ * have no password to change — the UI hides this, and we reject it defensively).
+ */
+export async function changePassword(
+  _prevState: ChangePasswordState,
+  formData: FormData,
+): Promise<ChangePasswordState> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return { error: "You must be signed in to change your password." };
+  }
+
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+  if (!parsed.success) {
+    const { fieldErrors } = z.flattenError(parsed.error);
+    return {
+      error: null,
+      fieldErrors: {
+        currentPassword: fieldErrors.currentPassword?.[0],
+        password: fieldErrors.password?.[0],
+        confirmPassword: fieldErrors.confirmPassword?.[0],
+      },
+    };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { password: true },
+  });
+  // OAuth-only accounts have no password to verify against.
+  if (!user?.password) {
+    return { error: "Password change isn't available for this account." };
+  }
+
+  const currentMatches = await bcrypt.compare(
+    parsed.data.currentPassword,
+    user.password,
+  );
+  if (!currentMatches) {
+    return {
+      error: null,
+      fieldErrors: { currentPassword: "Current password is incorrect." },
+    };
+  }
+
+  // No-op password changes are almost always a mistake — reject them.
+  const sameAsCurrent = await bcrypt.compare(parsed.data.password, user.password);
+  if (sameAsCurrent) {
+    return {
+      error: null,
+      fieldErrors: {
+        password: "New password must be different from your current password.",
+      },
+    };
+  }
+
+  const hashed = await bcrypt.hash(parsed.data.password, 12);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashed },
+  });
+
+  // Sign the user out so the current session ends and they must re-authenticate
+  // with the new password. signOut throws NEXT_REDIRECT — must run outside any
+  // try/catch; useActionState propagates the throw to complete navigation.
+  await signOut({ redirectTo: "/sign-in?passwordChanged=1" });
+  return { error: null };
+}
+
+export interface DeleteAccountState {
+  error: string | null;
+}
+
+/**
+ * Permanently deletes the signed-in user and all their data (items, collections,
+ * custom types, accounts, sessions cascade via the schema), cleans up any tags
+ * left orphaned, then signs them out. Guarded by a typed "DELETE" confirmation.
+ */
+export async function deleteAccount(
+  _prevState: DeleteAccountState,
+  formData: FormData,
+): Promise<DeleteAccountState> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return { error: "You must be signed in to delete your account." };
+  }
+
+  if (String(formData.get("confirm") ?? "") !== "DELETE") {
+    return { error: "Type DELETE to confirm account deletion." };
+  }
+
+  try {
+    await prisma.user.delete({ where: { id: userId } });
+    // Tags are global (no user relation); remove any left attached to no items.
+    await prisma.tag.deleteMany({ where: { items: { none: {} } } });
+  } catch {
+    return { error: "Could not delete your account. Please try again." };
+  }
+
+  // Sign the (now deleted) user out and send them to sign-in. Must be outside
+  // any try/catch — signOut throws NEXT_REDIRECT to perform the navigation.
+  await signOut({ redirectTo: "/sign-in?deleted=1" });
+  return { error: null };
 }
