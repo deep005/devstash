@@ -35,6 +35,7 @@ export default async function SignInPage({
   const callbackUrl = firstValue(params.callbackUrl);
   const registered = firstValue(params.registered) === "1";
   const verified = firstValue(params.verified) === "1";
+  const reset = firstValue(params.reset) === "1";
   const verificationEnabled = isEmailVerificationEnabled();
   const errorCode = firstValue(params.error);
   const errorMessage = errorCode
@@ -60,6 +61,11 @@ export default async function SignInPage({
       {verified && (
         <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
           Email verified. You can now sign in.
+        </p>
+      )}
+      {reset && (
+        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+          Password updated. You can now sign in with your new password.
         </p>
       )}
       {errorMessage && (

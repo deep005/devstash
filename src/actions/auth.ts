@@ -1,12 +1,21 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 import { signIn, signOut } from "@/auth";
-import { signInSchema } from "@/lib/auth-schemas";
+import {
+  requestResetSchema,
+  resetPasswordSchema,
+  signInSchema,
+} from "@/lib/auth-schemas";
 import { isEmailVerificationEnabled } from "@/lib/flags";
+import {
+  issuePasswordResetEmail,
+  resetPasswordWithToken,
+} from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 import { issueVerificationEmail } from "@/lib/verification";
 
@@ -134,4 +143,92 @@ export async function resendVerificationEmail(
   }
 
   return { sent: true, message: RESEND_MESSAGE };
+}
+
+export interface RequestResetState {
+  message: string | null;
+  sent: boolean;
+}
+
+// Deliberately generic so the response never reveals whether an email is
+// registered (or is an OAuth-only account with no password to reset).
+const RESET_REQUEST_MESSAGE =
+  "If an account exists for that email, we've sent a password reset link. Check your inbox.";
+
+/**
+ * Sends a password-reset email for an email/password account. Always reports the
+ * same generic success to avoid account enumeration; only credentials accounts
+ * (those with a stored password) actually receive a link.
+ */
+export async function requestPasswordReset(
+  _prevState: RequestResetState,
+  formData: FormData,
+): Promise<RequestResetState> {
+  const parsed = requestResetSchema.safeParse({ email: formData.get("email") });
+
+  if (parsed.success) {
+    const user = await prisma.user.findUnique({
+      where: { email: parsed.data.email },
+      select: { name: true, password: true },
+    });
+    // Only credentials accounts have a password to reset; OAuth-only and unknown
+    // emails silently no-op.
+    if (user?.password) {
+      await issuePasswordResetEmail({ email: parsed.data.email, name: user.name });
+    }
+  }
+
+  return { sent: true, message: RESET_REQUEST_MESSAGE };
+}
+
+export interface ResetPasswordState {
+  error: string | null;
+  fieldErrors?: { password?: string; confirmPassword?: string };
+}
+
+/**
+ * Sets a new password from a valid reset token, then redirects to sign-in.
+ * Invalid/expired tokens and validation failures return a message for the form.
+ */
+export async function resetPassword(
+  _prevState: ResetPasswordState,
+  formData: FormData,
+): Promise<ResetPasswordState> {
+  const token = String(formData.get("token") ?? "");
+  const parsed = resetPasswordSchema.safeParse({
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+  if (!parsed.success) {
+    const { fieldErrors } = z.flattenError(parsed.error);
+    return {
+      error: null,
+      fieldErrors: {
+        password: fieldErrors.password?.[0],
+        confirmPassword: fieldErrors.confirmPassword?.[0],
+      },
+    };
+  }
+
+  const result = await resetPasswordWithToken({
+    token,
+    password: parsed.data.password,
+  });
+
+  if (result.status === "expired") {
+    return {
+      error:
+        "This reset link has expired. Request a new one from the forgot-password page.",
+    };
+  }
+  if (result.status === "invalid") {
+    return {
+      error:
+        "This reset link is invalid or has already been used. Request a new one from the forgot-password page.",
+    };
+  }
+
+  // Success — redirect must be called outside any try/catch (it throws
+  // NEXT_REDIRECT). useActionState propagates the throw to complete navigation.
+  redirect("/sign-in?reset=1");
 }

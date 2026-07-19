@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { getBaseUrl } from "@/lib/base-url";
 import { sendVerificationEmail } from "@/lib/email/verification-email";
+import { PASSWORD_RESET_IDENTIFIER_PREFIX } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 
 // Verification links are valid for 24 hours.
@@ -61,6 +62,13 @@ export async function verifyEmailToken(
     where: { token },
   });
   if (!record) {
+    return { status: "invalid" };
+  }
+
+  // Password-reset tokens share this table under a namespaced identifier — never
+  // consume one here (that would burn a valid reset link). Report invalid and
+  // leave it untouched for the reset flow.
+  if (record.identifier.startsWith(PASSWORD_RESET_IDENTIFIER_PREFIX)) {
     return { status: "invalid" };
   }
 

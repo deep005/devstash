@@ -17,3 +17,18 @@ export const registerSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+
+export const requestResetSchema = z.object({
+  email: z.email().transform((value) => value.toLowerCase()),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    // bcrypt only uses the first 72 bytes of the password.
+    password: z.string().min(8, "Password must be at least 8 characters").max(72),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
