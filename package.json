@@ -14,7 +14,8 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:status": "prisma migrate status",
-    "db:test": "tsx scripts/test-dbs.ts"
+    "db:test": "tsx scripts/test-dbs.ts",
+    "db:delete-users": "tsx scripts/delete-users.ts"
   },
   "engines": {
     "node": ">=22.12"
