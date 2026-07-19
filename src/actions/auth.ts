@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { signIn, signOut } from "@/auth";
 import { signInSchema } from "@/lib/auth-schemas";
+import { isEmailVerificationEnabled } from "@/lib/flags";
 import { prisma } from "@/lib/prisma";
 import { issueVerificationEmail } from "@/lib/verification";
 
@@ -40,22 +41,25 @@ export async function signInWithCredentials(
 
   const { email, password } = parsed.data;
 
-  // When the credentials are correct but the account is unverified, show a
-  // specific message + resend option instead of the generic invalid-credentials
-  // error that authorize (which also blocks unverified users) would produce.
-  const account = await prisma.user.findUnique({
-    where: { email },
-    select: { password: true, emailVerified: true },
-  });
-  if (account?.password && !account.emailVerified) {
-    const passwordMatches = await bcrypt.compare(password, account.password);
-    if (passwordMatches) {
-      return {
-        error:
-          "Please verify your email address to sign in. Check your inbox for the verification link.",
-        needsVerification: true,
-        email,
-      };
+  // When verification is on and the credentials are correct but the account is
+  // unverified, show a specific message + resend option instead of the generic
+  // invalid-credentials error that authorize (which also blocks unverified
+  // users) would produce.
+  if (isEmailVerificationEnabled()) {
+    const account = await prisma.user.findUnique({
+      where: { email },
+      select: { password: true, emailVerified: true },
+    });
+    if (account?.password && !account.emailVerified) {
+      const passwordMatches = await bcrypt.compare(password, account.password);
+      if (passwordMatches) {
+        return {
+          error:
+            "Please verify your email address to sign in. Check your inbox for the verification link.",
+          needsVerification: true,
+          email,
+        };
+      }
     }
   }
 
@@ -109,6 +113,11 @@ export async function resendVerificationEmail(
   _prevState: ResendState,
   formData: FormData,
 ): Promise<ResendState> {
+  // No-op when verification is disabled — nothing to resend.
+  if (!isEmailVerificationEnabled()) {
+    return { sent: true, message: RESEND_MESSAGE };
+  }
+
   const parsed = z
     .email()
     .safeParse(String(formData.get("email") ?? "").trim().toLowerCase());

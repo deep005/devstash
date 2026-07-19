@@ -1,20 +1,32 @@
-# Current Feature
+# Current Feature: Email Verification Toggle
 
 ## Status
 
-None
+In Progress
 
 ## Feature
 
-None
+A single, easy flag to turn the whole email-verification system on or off. When **off**, registration sends no verification email and new accounts can sign in immediately; when **on**, current behavior (send email + gate sign-in until verified) is unchanged. Recommended source is an env var, but the choice is open (see Notes).
 
 ## Goals
 
-None
+- One central flag (recommended `EMAIL_VERIFICATION_ENABLED`, default **enabled** = current behavior) read from a single helper (e.g. `src/lib/flags.ts` → `isEmailVerificationEnabled()`) so every touchpoint agrees.
+- **Disabled** behavior:
+  - `POST /api/auth/register` skips `issueVerificationEmail` and creates the user already verified (`emailVerified: new Date()`) so the account is usable now and stays valid if the flag is later turned back on.
+  - Sign-in is not gated: the `authorize` block in `src/auth.ts` and the pre-check in `signInWithCredentials` skip the `emailVerified` check.
+  - `resendVerificationEmail` is a no-op (still returns its generic message, sends nothing).
+  - Post-register UX drops the "check your email" copy (the `/sign-in?registered=1` banner shows a plain "Account created. Sign in to continue.").
+- **Enabled** behavior is byte-for-byte the current flow (no regression).
+- Toggling the flag requires no code change — just the env value (and a restart/redeploy).
 
 ## Notes
 
-None
+- **Touchpoints** to branch on the flag: `src/app/api/auth/register/route.ts` (send + `emailVerified`), `src/auth.ts` (`authorize` gate ~L48), `src/actions/auth.ts` (`signInWithCredentials` pre-check ~L50 and `resendVerificationEmail` ~L108), and `src/app/(auth)/sign-in/page.tsx` (the server page reads the flag to pick the `registered` banner copy — the client `RegisterForm` still just redirects to `/sign-in?registered=1`). Edge case to decide during `start`: what `/verify-email` does when the flag is off (harmless no-op vs redirect to `/sign-in`).
+- **No existing flags/config module** — `src/lib/flags.ts` does not exist yet; create it as the single source of truth. The flag is server-side only.
+- **Recommended:** env var, parsed default-on (e.g. `process.env.EMAIL_VERIFICATION_ENABLED !== "false"`), added to `.env` and `.env.example`. **No migration** needed. Alternatives the user is open to: a hardcoded config constant (simplest, but needs a code change to flip), or a DB-backed `Setting` row for runtime toggling **without** a redeploy (more flexible, but requires a schema migration + a tiny read on the hot path). Confirm the choice at `start`.
+- Since the flag is env-based, changing it needs a server restart/redeploy to take effect — call this out so "it didn't toggle" isn't a surprise.
+- Resend status: the domain is **not** linked/verified in Resend right now, so with the shared test sender (`onboarding@resend.dev`) verification emails only deliver to the Resend account's own address — sends to any other address fail. This is a core motivation for the toggle: being able to turn verification off while real delivery isn't set up. It also means the **enabled** path can't be fully end-to-end tested via a delivered email until the domain is linked.
+- Non-standard Next.js 16 — server components / server actions read env directly; no client exposure of the flag needed. Verify with `npm run lint` + `npm run build`, and exercise both flag states.
 
 ## History
 

@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 
 import authConfig from "@/auth.config";
 import { signInSchema } from "@/lib/auth-schemas";
+import { isEmailVerificationEnabled } from "@/lib/flags";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -41,11 +42,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // Block unverified email/password accounts. This is the security gate
-        // (it also protects the raw /callback/credentials endpoint); the
-        // sign-in server action separately surfaces a friendly "verify your
-        // email" message. OAuth users never reach this authorize.
-        if (!user.emailVerified) {
+        // Block unverified email/password accounts when verification is on.
+        // This is the security gate (it also protects the raw
+        // /callback/credentials endpoint); the sign-in server action separately
+        // surfaces a friendly "verify your email" message. OAuth users never
+        // reach this authorize.
+        if (isEmailVerificationEnabled() && !user.emailVerified) {
           return null;
         }
 

@@ -5,6 +5,7 @@ import { signInWithGitHub } from "@/actions/auth";
 import { GitHubIcon } from "@/components/auth/github-icon";
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { Button } from "@/components/ui/button";
+import { isEmailVerificationEnabled } from "@/lib/flags";
 
 export const metadata: Metadata = {
   title: "Sign in — DevStash",
@@ -34,6 +35,7 @@ export default async function SignInPage({
   const callbackUrl = firstValue(params.callbackUrl);
   const registered = firstValue(params.registered) === "1";
   const verified = firstValue(params.verified) === "1";
+  const verificationEnabled = isEmailVerificationEnabled();
   const errorCode = firstValue(params.error);
   const errorMessage = errorCode
     ? (ERROR_MESSAGES[errorCode] ?? "Sign-in failed. Please try again.")
@@ -50,8 +52,9 @@ export default async function SignInPage({
 
       {registered && (
         <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
-          Account created. Check your email for a verification link, then sign
-          in.
+          {verificationEnabled
+            ? "Account created. Check your email for a verification link, then sign in."
+            : "Account created. Sign in to continue."}
         </p>
       )}
       {verified && (

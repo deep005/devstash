@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 
 import { Prisma } from "@/generated/prisma/client";
 import { registerSchema } from "@/lib/auth-schemas";
+import { isEmailVerificationEnabled } from "@/lib/flags";
 import { prisma } from "@/lib/prisma";
 import { issueVerificationEmail } from "@/lib/verification";
 
@@ -41,15 +42,26 @@ export async function POST(request: Request) {
       );
     }
 
+    const verificationEnabled = isEmailVerificationEnabled();
+
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const user = await prisma.user.create({
-      data: { name, email, password: passwordHash },
+      data: {
+        name,
+        email,
+        password: passwordHash,
+        // With verification off, mark the account verified on creation so it is
+        // usable immediately and stays valid if the flag is later turned on.
+        ...(verificationEnabled ? {} : { emailVerified: new Date() }),
+      },
       select: { id: true, name: true, email: true },
     });
 
-    // Send the verification email. A send failure does not fail registration —
-    // the account exists and the user can request a fresh link from sign-in.
-    await issueVerificationEmail({ email: user.email, name: user.name });
+    // Send the verification email (only when the feature is on). A send failure
+    // does not fail registration — the user can request a fresh link at sign-in.
+    if (verificationEnabled) {
+      await issueVerificationEmail({ email: user.email, name: user.name });
+    }
 
     return NextResponse.json({ success: true, data: user }, { status: 201 });
   } catch (error) {

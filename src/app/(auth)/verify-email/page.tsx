@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { ResendVerificationForm } from "@/components/auth/resend-verification-form";
 import { Button } from "@/components/ui/button";
+import { isEmailVerificationEnabled } from "@/lib/flags";
 import { verifyEmailToken } from "@/lib/verification";
 
 export const metadata: Metadata = {
   title: "Verify email — DevStash",
 };
+
+// Force dynamic: when EMAIL_VERIFICATION_ENABLED is off, this page short-
+// circuits to an unconditional redirect with no searchParams read, which
+// Next would otherwise prerender as static HTML at build time — freezing
+// that redirect in place until the next rebuild, even if the flag is later
+// flipped back on and the server restarted.
+export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -20,6 +29,12 @@ export default async function VerifyEmailPage({
 }: {
   searchParams: SearchParams;
 }) {
+  // With verification disabled there are no tokens to confirm; send stale links
+  // to sign-in rather than showing an "invalid link" state.
+  if (!isEmailVerificationEnabled()) {
+    redirect("/sign-in");
+  }
+
   const params = await searchParams;
   const token = firstValue(params.token) ?? "";
   const result = await verifyEmailToken(token);
