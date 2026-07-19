@@ -1,69 +1,20 @@
-# Current Feature: Profile Page
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Feature
 
-Build out the `/profile` page: user info (email, name, avatar, account creation
-date), usage stats (total items, total collections, per-item-type breakdown), and
-account actions — change password (email/credentials users only) and delete account
-with a confirmation dialog. A minimal `/profile` page already exists (avatar +
-name/email, `auth()`-guarded, from the auth-phase-3 work); this feature expands it.
+None
 
 ## Goals
 
-- **Route** — keep `/profile` protected (already `auth()`-guarded + covered by the
-  proxy matcher); redirect unauthenticated users to sign-in as today.
-- **User info** — show email, name, avatar (GitHub OAuth `image` if present, else
-  initials from name/email), and the account creation date (`User.createdAt`).
-- **Usage stats** — total items, total collections, and a breakdown by item type with
-  a count for each of the 7 system types (snippets, prompts, notes, commands, links,
-  files, images).
-- **Change password** — visible **only** for email/password (credentials) accounts,
-  not GitHub OAuth-only accounts. Validate + hash the new password (bcrypt @ 12
-  rounds, consistent with register/seed/reset).
-- **Delete account** — behind a confirmation dialog to prevent accidental deletion;
-  cascades to the user's items/collections/etc., then signs the user out.
-- **Patterns** — follow the existing codebase: server-component data fetching via
-  Prisma (`src/lib/db/*`), server actions for mutations (`src/actions/auth.ts`), Zod
-  validation, shadcn/ui components, and the `{ success, data, error }` action shape.
-- `npm run lint` and `npm run build` clean; **no regression** to sign-in / register /
-  verification / reset flows.
+None
 
 ## Notes
 
-- **Existing surface:** `src/app/profile/page.tsx` currently renders just the avatar +
-  name/email (server component, `auth()`-guarded). Reuse `UserAvatar` / `getInitials`
-  from `src/components/auth/user-avatar.tsx` for the avatar (already handles the
-  GitHub-image-vs-initials logic).
-- **Per-user scoping:** the dashboard reads are still **demo-user-scoped**
-  (`DEMO_USER_EMAIL`, the standing `TODO(auth)`). The profile page must scope to the
-  **actual signed-in user** from `auth()`, not the demo user — so its stat/count
-  queries need to key off the session `user.id`, not reuse the demo-scoped helpers
-  as-is. `getItemTypesWithCounts()` (`src/lib/db/items.ts`) is the closest existing
-  helper for the type breakdown but is demo-scoped — likely needs a userId param or a
-  profile-specific variant.
-- **Credentials vs OAuth detection:** decide "email user" by presence of
-  `User.password` (credentials) vs an OAuth-only account (has an `Account` row / no
-  password) — mirrors how `authorize` / the reset flow already distinguish them. Only
-  credentials users see Change Password.
-- **Change password action:** new server action in `src/actions/auth.ts`; almost
-  certainly requires the **current** password (bcrypt compare) plus a new password +
-  confirm (new Zod schema alongside `resetPasswordSchema` in `src/lib/auth-schemas.ts`).
-- **Delete account:** needs a confirmation UI — likely shadcn **alert-dialog** (not yet
-  installed; `dropdown-menu`/`avatar`/`label` are). Cascade deletes are handled by the
-  schema (`onDelete: Cascade` on items/collections/accounts/sessions); the action then
-  `signOut`s. Orphaned tags may need cleanup (see the `db:delete-users` script pattern).
-- **No new dependencies expected** (bcryptjs, zod already installed); **no DB
-  migration** (all reads/writes are on existing models). Credentials + OAuth both
-  supported; delete applies to either, change-password only to credentials.
-- **Open decisions to resolve at `start`:** (1) require current password to change it
-  (recommended yes); (2) delete-account confirmation mechanism — simple confirm button
-  vs type-your-email-to-confirm; (3) whether to add per-user DB helpers now or a
-  minimal profile-scoped query — and whether the type breakdown reuses
-  `getItemTypesWithCounts` (parameterized) or a new function.
+None
 
 ## History
 
@@ -95,3 +46,5 @@ name/email, `auth()`-guarded, from the auth-phase-3 work); this feature expands 
 - **2026-07-11** — Started Dashboard UI Phase 1: ShadCN setup, `/dashboard` route, main layout, dark mode by default, display-only top bar (search + new item button), and sidebar/main placeholders. Status set to In Progress.
 
 - **2026-07-10** — Initial Next.js setup: scaffolded the project with Create Next App (Next.js 16, App Router, React 19, TypeScript, Tailwind CSS v4). Removed the default starter assets (`public/*.svg`), added context docs (`project-overview.md`, `coding-standards.md`, `ai-interaction.md`), and updated `layout.tsx`, `page.tsx`, and `globals.css`.
+
+- **2026-07-19** — Built out the **profile page** (user info, usage stats, change password, delete account) per [profile-spec.md](features/profile-spec.md) on branch `feature/profile-page` — expands the minimal `/profile` placeholder from auth-phase-3. New **user-scoped** data helper `src/lib/db/profile.ts` (`getProfileData(userId)`): unlike the dashboard reads (still demo-user-scoped, `DEMO_USER_EMAIL`/`TODO(auth)`), this keys every query off the **actual signed-in user's id** from `auth()` — name/email/image/`createdAt`, `hasPassword` (presence of `User.password`, distinguishing credentials from OAuth-only accounts), item/collection counts, and a 7-system-type breakdown (parallel `Promise.all`, reusing the dashboard's canonical type-order/icon/color pattern). Two new server actions in `src/actions/auth.ts`: `changePassword` (requires the **current password** via `bcrypt.compare` — confirmed with the user over the recommended default — rejects a same-as-current new password, hashes @ 12 rounds to match register/seed/reset, then **signs the user out** and redirects to `/sign-in?passwordChanged=1` so the old session can't outlive the password change) and `deleteAccount` (server-side re-checks the typed `DELETE` confirmation, `prisma.user.delete` cascades items/collections/types/accounts/sessions per the schema, best-effort orphaned-tag cleanup, then `signOut` → `/sign-in?deleted=1`). New `changePasswordSchema` in `src/lib/auth-schemas.ts` and `formatLongDate` in `src/lib/format.ts` ("Member since"). **UI, iterated per the user's feedback mid-feature:** both actions ended up as **buttons on the identity card that open modals**, not standalone page sections — `src/components/profile/change-password-dialog.tsx` (shadcn `Dialog`, new primitive `src/components/ui/dialog.tsx` built on the already-installed unified `radix-ui`, no new dep) and `delete-account-dialog.tsx` (shadcn `AlertDialog`, new `src/components/ui/alert-dialog.tsx`, same approach) with a **type-DELETE-to-enable** confirmation gate (confirmed via `AskUserQuestion` over a plain-confirm or type-email alternative). Both trigger and confirm buttons carry a leading Lucide icon (`KeyRound` for password, `Trash2` for delete, plus a `TriangleAlert` accent in the delete dialog header) — the user asked this icon convention be applied to future flows too, saved as a standing memory. `src/app/profile/page.tsx` rebuilt: identity card (avatar, name, email, "Member since", the two dialog-trigger buttons) + a Usage card (item/collection tiles, per-type breakdown grid with icon+color, hover transitions) — widened progressively per user feedback from `max-w-2xl` to `max-w-6xl` with the type grid at `lg:grid-cols-4` so all 7 types render in exactly 2 rows. Sign-in page gained `passwordChanged` and `deleted` banners alongside the existing `registered`/`verified`/`reset`. Verified `npm run lint` → clean and `npm run build` → success (`ƒ /profile`, all routes present, TypeScript clean) after every iteration, plus **read-only** Playwright/curl smoke tests against the running dev server as the signed-in demo user: unauth `/profile` → 307 to `/sign-in?callbackUrl=/profile`; authenticated render shows correct **user-scoped** stats (18 items / 5 collections, breakdown 4/3/5/0/0/0/6 matching the demo user's real data — proving the scoping fix); both modals open from the card buttons; the delete confirm button is disabled until `DELETE` is typed, then enables (cancelled, not submitted); `passwordChanged`/`deleted` banners render only on their query params. **Left to manual**, consistent with every prior auth feature: the actual mutating submits (real password change, real account deletion) were not run against the dev DB — exercising them would invalidate the seeded demo user's `12345678` login or delete it outright. **No new dependencies** (bcryptjs, zod, radix-ui already installed); **no DB migration**. Merged into `main` (fast-forward); branch `feature/profile-page` deleted. Feature complete.
