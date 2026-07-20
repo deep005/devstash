@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 
 import { requestPasswordReset, type RequestResetState } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,12 @@ export function ForgotPasswordForm() {
     requestPasswordReset,
     INITIAL_STATE,
   );
+
+  React.useEffect(() => {
+    if (state.rateLimited && state.message) {
+      toast.error(state.message);
+    }
+  }, [state]);
 
   if (state.sent) {
     return (

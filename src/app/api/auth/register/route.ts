@@ -5,11 +5,30 @@ import { Prisma } from "@/generated/prisma/client";
 import { registerSchema } from "@/lib/auth-schemas";
 import { isEmailVerificationEnabled } from "@/lib/flags";
 import { prisma } from "@/lib/prisma";
+import {
+  checkRateLimit,
+  getClientIp,
+  getRetryAfterSeconds,
+  registerRateLimiter,
+} from "@/lib/rate-limit";
 import { issueVerificationEmail } from "@/lib/verification";
 
 const BCRYPT_ROUNDS = 12;
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request.headers);
+  const { success, reset } = await checkRateLimit(registerRateLimiter, ip);
+  if (!success) {
+    const retryAfterSeconds = getRetryAfterSeconds(reset);
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Too many attempts. Please try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.`,
+      },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

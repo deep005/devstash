@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
@@ -7,6 +7,25 @@ import authConfig from "@/auth.config";
 import { signInSchema } from "@/lib/auth-schemas";
 import { isEmailVerificationEnabled } from "@/lib/flags";
 import { prisma } from "@/lib/prisma";
+import {
+  checkRateLimit,
+  formatRetryAfter,
+  getClientIp,
+  loginRateLimiter,
+} from "@/lib/rate-limit";
+
+// Thrown from authorize() when the sign-in rate limit is exceeded, so the
+// signInWithCredentials action can show a distinct message instead of the
+// generic "invalid credentials" one. authorize() is the single choke point
+// for every credentials attempt — both the app's own sign-in action and any
+// direct POST to /api/auth/callback/credentials funnel through it — so this
+// is the one place that reliably rate-limits both paths.
+export class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+  constructor(public retryAfter: string) {
+    super();
+  }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -24,13 +43,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials, request) => {
         const parsed = signInSchema.safeParse(credentials);
         if (!parsed.success) {
           return null;
         }
 
         const { email, password } = parsed.data;
+
+        const ip = getClientIp(request.headers);
+        const { success, reset } = await checkRateLimit(
+          loginRateLimiter,
+          `${ip}:${email}`,
+        );
+        if (!success) {
+          throw new RateLimitedError(formatRetryAfter(reset));
+        }
+
         const user = await prisma.user.findUnique({ where: { email } });
         // Reject unknown emails and OAuth-only accounts (no stored hash).
         if (!user?.password) {

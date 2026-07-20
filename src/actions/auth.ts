@@ -2,10 +2,11 @@
 
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import { auth, signIn, signOut } from "@/auth";
+import { auth, RateLimitedError, signIn, signOut } from "@/auth";
 import {
   changePasswordSchema,
   requestResetSchema,
@@ -18,6 +19,14 @@ import {
   resetPasswordWithToken,
 } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
+import {
+  checkRateLimit,
+  forgotPasswordRateLimiter,
+  formatRetryAfter,
+  getClientIp,
+  resendVerificationRateLimiter,
+  resetPasswordRateLimiter,
+} from "@/lib/rate-limit";
 import { issueVerificationEmail } from "@/lib/verification";
 
 export interface SignInState {
@@ -26,6 +35,8 @@ export interface SignInState {
   needsVerification?: boolean;
   /** The email to offer a resend for, when needsVerification is set. */
   email?: string;
+  /** Set when the sign-in rate limit was exceeded (surfaced as a toast). */
+  rateLimited?: boolean;
 }
 
 const DEFAULT_SIGNED_IN_URL = "/dashboard";
@@ -80,6 +91,12 @@ export async function signInWithCredentials(
       redirectTo: safeCallbackUrl(formData.get("callbackUrl")),
     });
   } catch (error) {
+    if (error instanceof RateLimitedError) {
+      return {
+        error: `Too many sign-in attempts. Try again in ${error.retryAfter}.`,
+        rateLimited: true,
+      };
+    }
     if (error instanceof AuthError) {
       return {
         error:
@@ -108,6 +125,8 @@ export async function signOutUser() {
 export interface ResendState {
   message: string | null;
   sent: boolean;
+  /** Set when the resend rate limit was exceeded (surfaced as a toast). */
+  rateLimited?: boolean;
 }
 
 // Deliberately generic so the response never reveals whether an email is
@@ -132,6 +151,20 @@ export async function resendVerificationEmail(
     .email()
     .safeParse(String(formData.get("email") ?? "").trim().toLowerCase());
 
+  const ip = getClientIp(await headers());
+  const identifier = `${ip}:${parsed.success ? parsed.data : "invalid"}`;
+  const { success, reset } = await checkRateLimit(
+    resendVerificationRateLimiter,
+    identifier,
+  );
+  if (!success) {
+    return {
+      sent: false,
+      message: `Too many attempts. Please try again in ${formatRetryAfter(reset)}.`,
+      rateLimited: true,
+    };
+  }
+
   if (parsed.success) {
     const user = await prisma.user.findUnique({
       where: { email: parsed.data },
@@ -149,6 +182,8 @@ export async function resendVerificationEmail(
 export interface RequestResetState {
   message: string | null;
   sent: boolean;
+  /** Set when the request rate limit was exceeded (surfaced as a toast). */
+  rateLimited?: boolean;
 }
 
 // Deliberately generic so the response never reveals whether an email is
@@ -165,6 +200,16 @@ export async function requestPasswordReset(
   _prevState: RequestResetState,
   formData: FormData,
 ): Promise<RequestResetState> {
+  const ip = getClientIp(await headers());
+  const { success, reset } = await checkRateLimit(forgotPasswordRateLimiter, ip);
+  if (!success) {
+    return {
+      sent: false,
+      message: `Too many attempts. Please try again in ${formatRetryAfter(reset)}.`,
+      rateLimited: true,
+    };
+  }
+
   const parsed = requestResetSchema.safeParse({ email: formData.get("email") });
 
   if (parsed.success) {
@@ -185,6 +230,8 @@ export async function requestPasswordReset(
 export interface ResetPasswordState {
   error: string | null;
   fieldErrors?: { password?: string; confirmPassword?: string };
+  /** Set when the reset rate limit was exceeded (surfaced as a toast). */
+  rateLimited?: boolean;
 }
 
 /**
@@ -195,6 +242,15 @@ export async function resetPassword(
   _prevState: ResetPasswordState,
   formData: FormData,
 ): Promise<ResetPasswordState> {
+  const ip = getClientIp(await headers());
+  const { success, reset } = await checkRateLimit(resetPasswordRateLimiter, ip);
+  if (!success) {
+    return {
+      error: `Too many attempts. Please try again in ${formatRetryAfter(reset)}.`,
+      rateLimited: true,
+    };
+  }
+
   const token = String(formData.get("token") ?? "");
   const parsed = resetPasswordSchema.safeParse({
     password: formData.get("password"),

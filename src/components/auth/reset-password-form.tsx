@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 
 import { resetPassword, type ResetPasswordState } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -19,9 +20,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
     INITIAL_STATE,
   );
 
+  React.useEffect(() => {
+    if (state.rateLimited && state.error) {
+      toast.error(state.error);
+    }
+  }, [state]);
+
   return (
     <form action={formAction} className="space-y-4">
-      {state.error && (
+      {state.error && !state.rateLimited && (
         <p
           role="alert"
           className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"

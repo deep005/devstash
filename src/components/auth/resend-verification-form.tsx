@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 
 import { resendVerificationEmail, type ResendState } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,12 @@ export function ResendVerificationForm({ email }: { email: string }) {
     INITIAL_STATE,
   );
 
+  React.useEffect(() => {
+    if (state.rateLimited && state.message) {
+      toast.error(state.message);
+    }
+  }, [state]);
+
   return (
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="email" value={email} />
@@ -32,7 +39,7 @@ export function ResendVerificationForm({ email }: { email: string }) {
             ? "Verification email sent"
             : "Resend verification email"}
       </Button>
-      {state.message && (
+      {state.message && !state.rateLimited && (
         <p className="text-sm text-muted-foreground">{state.message}</p>
       )}
     </form>

@@ -1,20 +1,47 @@
-# Current Feature
+# Current Feature: Rate Limiting for Auth
 
 ## Status
 
-None
+In Progress
 
 ## Feature
 
-None
+Add rate limiting to authentication endpoints to prevent brute force attacks, credential stuffing, and abuse of email-sending endpoints, per [rate-limiting-spec.md](features/rate-limiting-spec.md).
 
 ## Goals
 
-None
+- Create a reusable `src/lib/rate-limit.ts` utility using Upstash Redis (`@upstash/ratelimit`), sliding window algorithm
+- Extract client IP from `x-forwarded-for` (Vercel) or request; combine IP + email where applicable for tighter limits
+- Rate limit checks return `{ success, remaining, reset }`
+- Protect these endpoints with the specified limits:
+  - `/api/auth/callback/credentials` (login) — 5 attempts / 15 min, keyed by IP + email
+  - `/api/auth/register` — 3 attempts / 1 hour, keyed by IP
+  - `/api/auth/forgot-password` — 3 attempts / 1 hour, keyed by IP
+  - `/api/auth/reset-password` — 5 attempts / 15 min, keyed by IP
+  - `/api/auth/resend-verification` — 3 attempts / 15 min, keyed by IP + email
+- On limit exceeded: return 429 with JSON `{ error: "Too many attempts. Please try again in X minutes." }` and a `Retry-After` header
+- Frontend surfaces the rate-limit error via toast notification
+- Add `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` to env (`.env`, `.env.example`)
 
 ## Notes
 
-None
+- New dependency: `@upstash/ratelimit` (+ `@upstash/redis` client)
+- Fail open (allow the request) if Upstash is unavailable
+- Login rate limiting is tricky with NextAuth Credentials — the real traffic hits `/api/auth/callback/credentials` (NextAuth's own route handler), not a custom route, so this likely needs to be enforced inside the `authorize` callback (`src/auth.ts`) or a wrapper, not a route-level check like the other endpoints
+- Several "endpoints" in the spec table don't exist as their own routes today and should be double-checked against the actual codebase before implementation:
+  - `/api/auth/forgot-password` and `/api/auth/reset-password` — current flow uses server actions (`requestPasswordReset`, `resetPassword` in `src/actions/auth.ts`), not API routes
+  - `/api/auth/resend-verification` — current flow uses the `resendVerificationEmail` server action, not an API route
+  - Only `/api/auth/register` (`src/app/api/auth/register/route.ts`) is an actual existing API route
+  - Need a decision during `start`/planning: convert these server actions to API routes, or apply rate limiting inside the server actions directly (probably keep as server actions and rate-limit inside them, given the coding standards prefer Server Actions for mutations)
+- Consider rate limiting middleware/proxy (`src/proxy.ts`) for cleaner implementation later, per spec's suggestion — deferred unless needed
+- Upstash free tier (10k requests/day) is sufficient for this scope
+
+## Decisions (confirmed at start)
+
+- **Forgot-password/reset-password/resend-verification stay Server Actions** — rate-limit inside `requestPasswordReset`, `resetPassword`, `resendVerificationEmail` directly (not converted to API routes). The actual defense (Upstash rejecting the N+1th attempt before any DB write/email send) is identical either way; a literal 429/Retry-After only matters for external tooling or a future mobile/CLI client, neither of which exists yet, and the coding standards already reserve API routes for that case — revisit if one is ever added. Only `/api/auth/register` (the one real existing route) returns a literal 429 + Retry-After.
+- **Login rate limiting lives inside `authorize()` in `src/auth.ts`**, confirmed via Context7 (authjs.dev): `authorize(credentials, request)` receives the raw `Request` (so IP is available there), and this is the single choke point both the app's `signInWithCredentials` server action AND any direct POST to the raw `/api/auth/callback/credentials` endpoint funnel through — so enforcing it there covers both paths without needing a route wrapper. A custom `RateLimitedError extends CredentialsSignin` (per the authjs.dev custom-error pattern) is thrown to distinguish "rate limited" from "wrong password" in the server action's catch block.
+- **Adding `sonner` (shadcn) as a new toast dependency**, wired via `<Toaster />` in the root layout — no toast library existed before this feature (every prior auth form used inline `state.error` banners). Toast is used specifically for rate-limit messages; all other existing error UX is left untouched (inline banners unchanged) to keep the change scoped.
+- `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` are already set in the local `.env` with real values, so this feature gets a real, non-mocked smoke test against live Upstash (unlike the Resend-email flows in prior features, which stayed manual-only).
 
 ## History
 

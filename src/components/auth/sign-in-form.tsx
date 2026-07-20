@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 import { signInWithCredentials, type SignInState } from "@/actions/auth";
 import { ResendVerificationForm } from "@/components/auth/resend-verification-form";
@@ -22,12 +23,18 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
     INITIAL_STATE,
   );
 
+  React.useEffect(() => {
+    if (state.rateLimited && state.error) {
+      toast.error(state.error);
+    }
+  }, [state]);
+
   // A nested <form> is invalid HTML, so the resend form renders as a sibling
   // below the sign-in form (which stays usable for a retry after verifying).
   return (
     <div className="space-y-4">
       <form action={formAction} className="space-y-4">
-        {state.error && !state.needsVerification && (
+        {state.error && !state.needsVerification && !state.rateLimited && (
           <p
             role="alert"
             className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"

@@ -61,3 +61,4 @@ omitted `branchId` silently hits production.
   `TRUNCATE` or any migration tool (`prepare_database_migration`,
   `complete_database_migration`).
 - If a request is ambiguous about which branch, ask rather than assume.
+- Dont test ona dev server during unless specified in the command.

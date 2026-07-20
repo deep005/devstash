@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -99,10 +100,12 @@ export function RegisterForm() {
         return;
       }
       const body: { error?: string } = await response.json().catch(() => ({}));
-      setState({
-        fieldErrors: {},
-        formError: body.error ?? "Registration failed. Please try again.",
-      });
+      const message = body.error ?? "Registration failed. Please try again.";
+      if (response.status === 429) {
+        toast.error(message);
+      } else {
+        setState({ fieldErrors: {}, formError: message });
+      }
     } catch {
       setState({
         fieldErrors: {},
