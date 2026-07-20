@@ -8,7 +8,7 @@ Read the following to get full context of the project
 
 - @context/project-overview.md
 - @context/coding-standards.md
-- @context/ai-interactions.md
+- @context/ai-interaction.md
 - @context/current-feature.md
 
 ## Critical: non-standard Next.js
@@ -21,8 +21,10 @@ This repo pins `next@16.2.10`, which carries breaking changes versus what you li
 - `npm run build` — production build
 - `npm run start` — serve the production build
 - `npm run lint` — run ESLint (flat config, bare `eslint`)
+- `npm run test` — run unit tests once (Vitest)
+- `npm run test:watch` — run unit tests in watch mode
 
-There is no test setup in this project.
+Vitest covers server actions and utilities only, not components (see `context/coding-standards.md`).
 
 ## Architecture
 
