@@ -10,16 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import type { SidebarCollections } from "@/lib/db/collections";
 import type { ItemTypeNav } from "@/lib/db/items";
 import { getItemTypeIcon } from "@/lib/item-type-icons";
+import { typeHref, typeLabel } from "@/lib/item-type-slug";
 import { cn } from "@/lib/utils";
-
-/** Capitalized, pluralized label for an item type, e.g. "snippet" → "Snippets". */
-function typeLabel(name: string) {
-  return `${name.charAt(0).toUpperCase()}${name.slice(1)}s`;
-}
-/** Route for an item type, e.g. "snippet" → /items/snippets. */
-function typeHref(name: string) {
-  return `/items/${name}s`;
-}
 
 /** Item types gated behind the Pro plan — flagged with a PRO badge in the nav. */
 const PRO_TYPE_NAMES = new Set(["file", "image"]);

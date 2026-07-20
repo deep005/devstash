@@ -59,6 +59,36 @@ export async function getRecentItems(limit = 10): Promise<ItemSummary[]> {
   return items.map(toItemSummary);
 }
 
+export interface ItemTypePageData {
+  itemType: ItemTypeSummary;
+  items: ItemSummary[];
+}
+
+/**
+ * A system item type's display metadata plus the user's items of that type,
+ * newest first — powers the `/items/[type]` list page. Returns null if
+ * `typeName` isn't a known system type.
+ */
+export async function getItemsByType(
+  typeName: string,
+): Promise<ItemTypePageData | null> {
+  const [itemType, items] = await Promise.all([
+    prisma.itemType.findFirst({
+      where: { name: typeName, isSystem: true },
+      select: { name: true, icon: true, color: true },
+    }),
+    prisma.item.findMany({
+      where: { itemType: { name: typeName }, user: { email: DEMO_USER_EMAIL } },
+      orderBy: { updatedAt: "desc" },
+      select: ITEM_SUMMARY_SELECT,
+    }),
+  ]);
+
+  if (!itemType) return null;
+
+  return { itemType, items: items.map(toItemSummary) };
+}
+
 function toItemSummary({
   tags,
   ...item

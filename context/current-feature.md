@@ -1,20 +1,26 @@
-# Current Feature
+# Current Feature: Items List View
 
 ## Status
 
-Not Started
+In Progress
 
 ## Feature
 
-<!-- Feature description here -->
+Dynamic items listing page at `/items/[type]` that displays type-filtered items, per [item-list-view-spec.md](features/item-list-view-spec.md).
 
 ## Goals
 
-<!-- Goals here -->
+- Create dynamic route `/items/[type]` (e.g. `/items/snippets`, `/items/notes`)
+- Fetch and display items filtered by type
+- Responsive grid of `ItemCard` components, two columns on medium and up
+- Each card has a left border colored by item type
+- Follow existing codebase patterns
 
 ## Notes
 
-<!-- Notes here -->
+- Spec is intentionally light on implementation detail — no ItemCard design, empty-state, sorting, or pagination requirements specified; follow existing patterns (`src/components/collections/collection-card.tsx`, `src/components/items/item-row.tsx`, `src/lib/db/items.ts`) for data-fetch/accent-color/type-icon conventions.
+- `[type]` in the URL is plural-ish (`snippets`, `notes`) but system item type names in the DB are singular (`snippet`, `note`) — will need a mapping/singularization step, consistent with how the sidebar already links to `/items/<type>s`.
+- Two design docs already exist that touch this area and are worth reading before implementing: [docs/item-crud-architecture.md](../docs/item-crud-architecture.md) (proposed unified CRUD structure for all 7 item types) and [docs/item-types.md](../docs/item-types.md) (per-type icon/color reference).
 
 ## History
 
