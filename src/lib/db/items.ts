@@ -96,6 +96,81 @@ function toItemSummary({
   return { ...item, tags: tags.map((tag) => tag.name) };
 }
 
+/** A collection an item belongs to, for the item drawer's memberships list. */
+export interface ItemDetailCollection {
+  id: string;
+  name: string;
+}
+
+/** Full detail for a single item — powers the item drawer. */
+export interface ItemDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  content: string | null;
+  url: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  fileUrl: string | null;
+  language: string | null;
+  contentType: "TEXT" | "FILE" | "URL";
+  isFavorite: boolean;
+  isPinned: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  /** Tag names on this item, alphabetical. */
+  tags: string[];
+  /** The item's type — drives the drawer icon and accent color. */
+  itemType: ItemTypeSummary;
+  /** Collections this item belongs to, alphabetical. */
+  collections: ItemDetailCollection[];
+}
+
+/**
+ * Full detail for a single item, scoped to the given user — powers the item
+ * drawer (fetched on click via `GET /api/items/[id]`). Returns null if the item
+ * doesn't exist or doesn't belong to the user, so the caller can 404.
+ */
+export async function getItemDetail(
+  itemId: string,
+  userId: string,
+): Promise<ItemDetail | null> {
+  const item = await prisma.item.findFirst({
+    where: { id: itemId, userId },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      content: true,
+      url: true,
+      fileName: true,
+      fileSize: true,
+      fileUrl: true,
+      language: true,
+      contentType: true,
+      isFavorite: true,
+      isPinned: true,
+      createdAt: true,
+      updatedAt: true,
+      tags: { select: { name: true }, orderBy: { name: "asc" } },
+      itemType: { select: { name: true, icon: true, color: true } },
+      collections: {
+        select: { collection: { select: { id: true, name: true } } },
+      },
+    },
+  });
+
+  if (!item) return null;
+
+  return {
+    ...item,
+    tags: item.tags.map((tag) => tag.name),
+    collections: item.collections
+      .map((entry) => entry.collection)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
 export interface ItemTypeNav {
   name: string;
   /** Lucide icon name stored on the item type, e.g. "Code". */

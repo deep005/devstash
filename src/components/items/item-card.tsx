@@ -1,6 +1,9 @@
+"use client";
+
 import { createElement } from "react";
 import { Pin, Star } from "lucide-react";
 
+import { useItemDrawer } from "@/components/items/item-drawer-provider";
 import { formatShortDate } from "@/lib/format";
 import { getItemTypeIcon } from "@/lib/item-type-icons";
 import type { ItemSummary } from "@/lib/db/items";
@@ -9,11 +12,22 @@ import type { ItemSummary } from "@/lib/db/items";
 export function ItemCard({ item }: { item: ItemSummary }) {
   const iconComponent = getItemTypeIcon(item.itemType.icon);
   const accent = item.itemType.color;
+  const { openItem } = useItemDrawer();
 
   return (
     <div
       style={{ borderLeftColor: accent }}
       className="flex cursor-pointer flex-col rounded-xl border border-border border-l-2 bg-card p-5 transition-colors hover:bg-muted/40"
+      role="button"
+      tabIndex={0}
+      aria-haspopup="dialog"
+      onClick={() => openItem(item.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openItem(item.id);
+        }
+      }}
     >
       <div className="flex items-start justify-between gap-2">
         <span

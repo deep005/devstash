@@ -1,20 +1,33 @@
-# Current Feature
+# Current Feature: Item Drawer
 
 ## Status
 
-Not Started
+In Progress
 
 ## Feature
 
-<!-- Feature description here -->
+Right-side slide-in drawer that serves as the item detail view — clicking an item card opens a drawer (shadcn Sheet, opens from the right) showing that item's full data. There is no separate item detail page. Works on both the dashboard and the `/items/[type]` list pages. See [item-drawer-spec.md](features/item-drawer-spec.md) and `context/screenshots/dashboard-ui-drawer.png`.
 
 ## Goals
 
-<!-- Goals here -->
+- Use the shadcn **Sheet** component, opening from the right, as the item detail view (no separate page/navigation).
+- Clicking an `ItemCard` opens the drawer populated with that item's full data; works on both the dashboard and `/items/[type]` pages.
+- **Action bar** with Favorite (star, yellow when active), Pin, Copy, Edit (pencil), and Delete (trash, right-aligned) — display/layout per the screenshot. Buttons carry meaningful Lucide icons per the standing convention.
+- Drawer detail body displays: header (type icon + title + type badge + tag badge + close), Description, Tags, Collections, and Details (Created/Updated dates). Content/code editor is a **display placeholder for now** — item-specific rendering comes later.
+- **Client wrapper component** manages drawer open/close + selected-item state, since the pages are server components.
+- Card data (title, description, tags, etc.) stays fetched by the server component as before. **Full item detail** (content, collections, language, etc.) is fetched on click via a new `GET /api/items/[id]` route.
+- New query function in `src/lib/db/items.ts` returns full item detail; the API route calls it with an auth check (user-scoped).
+- Drawer shows a **skeleton/loading state** while the detail fetch is in flight; should feel snappy (fetch on click, no navigation).
 
 ## Notes
 
-<!-- Notes here -->
+- **Scope for this pass:** drawer shell + detail display only. Explicitly deferred: the code editor / item-type-specific content rendering, and wiring the action-bar buttons (Favorite/Pin/Copy/Edit/Delete) to real mutations — the spec says "extras like the code editor and item-specific stuff will come later" and frames the action bar as layout ("see screenshot for layout"). Confirm at `start` whether the action buttons should be functional or display-only this pass.
+- **API route is required here** (not a Server Action): the coding standards reserve API routes for cases like this, and the spec explicitly calls for `GET /api/items/[id]`. Auth via `auth()`; scope the query to the signed-in user's id (mirror the profile page's user-scoping, not the demo-user pattern still used elsewhere).
+- **Non-standard Next.js:** repo pins `next@16.2.10` — read the bundled route-handler docs in `node_modules/next/dist/docs/` before writing the API route; dynamic route params are async in this version.
+- `ItemCard` (`src/components/items/item-card.tsx`) is currently a plain server-rendered card used on both surfaces; making it clickable to open the drawer means the click/state needs a client boundary (the client wrapper). Keep server-side card data fetching intact.
+- Reuse existing patterns: `ITEM_SUMMARY_SELECT`/`toItemSummary` in `src/lib/db/items.ts`, type icon/color helpers, `formatLongDate` (`src/lib/format.ts`) for the Created/Updated dates.
+- shadcn **Sheet** and **Skeleton** primitives are likely not yet installed — add via `npx shadcn add` (reuses the already-installed `radix-ui`; no new deps expected).
+- Testing per standing workflow: Vitest covers the new server query/utility logic only (not components); `npm run build` + `npm run lint` for the rest. Don't test on a dev server unless the command specifies it.
 
 ## History
 

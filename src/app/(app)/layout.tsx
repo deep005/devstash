@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
 import type { SidebarUser } from "@/components/layout/sidebar-user";
 import { TopBar } from "@/components/layout/top-bar";
+import { ItemDrawerProvider } from "@/components/items/item-drawer-provider";
 import { getSidebarCollections } from "@/lib/db/collections";
 import { getItemTypesWithCounts } from "@/lib/db/items";
 
@@ -48,7 +49,9 @@ export default async function DashboardLayout({
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <TopBar />
-          <main className="min-h-0 flex-1 overflow-y-auto p-6">{children}</main>
+          <main className="min-h-0 flex-1 overflow-y-auto p-6">
+            <ItemDrawerProvider>{children}</ItemDrawerProvider>
+          </main>
         </div>
       </div>
     </SidebarProvider>
